@@ -1,0 +1,244 @@
+name: Deploy Hostinger VPS
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/api/**'
+      - 'apps/web/**'
+      - 'packages/**'
+      - 'supabase/migrations/**'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.github/workflows/deploy-hostinger.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-hostinger
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  API_IMAGE_NAME: ghcr.io/bernardoxlima/ymagineapp-api
+  FRONTEND_IMAGE_NAME: ghcr.io/bernardoxlima/ymagineapp-frontend
+
+jobs:
+  build-api:
+    name: Build API
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Build and push API image
+        id: meta
+        run: |
+          set -euo pipefail
+          SHA8="${GITHUB_SHA::8}"
+          IMAGE="${API_IMAGE_NAME}:${SHA8}"
+
+          docker buildx build \
+            --platform linux/amd64 \
+            --file apps/api/Dockerfile \
+            --build-arg SERVICE=apps/api \
+            --tag "$IMAGE" \
+            --tag "${API_IMAGE_NAME}:main" \
+            --push \
+            .
+
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+
+  build-frontend:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: |
+          corepack enable pnpm
+          pnpm install --frozen-lockfile
+
+      - name: Build frontend standalone output
+        run: |
+          NEXT_PUBLIC_ENV_MODE=local \
+          NEXT_PUBLIC_BACKEND_URL=http://localhost:8008/v1 \
+          NEXT_PUBLIC_SUPABASE_URL=https://placeholder.supabase.co \
+          NEXT_PUBLIC_SUPABASE_ANON_KEY=local-build-placeholder-anon-key \
+          NEXT_PUBLIC_BILLING_ENABLED=false \
+          NEXT_OUTPUT=standalone \
+          pnpm --filter ./apps/web build
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Build and push frontend image
+        id: meta
+        run: |
+          set -euo pipefail
+          SHA8="${GITHUB_SHA::8}"
+          IMAGE="${FRONTEND_IMAGE_NAME}:${SHA8}"
+
+          docker buildx build \
+            --platform linux/amd64 \
+            --file apps/web/Dockerfile \
+            --tag "$IMAGE" \
+            --tag "${FRONTEND_IMAGE_NAME}:main" \
+            --push \
+            .
+
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: Deploy to Hostinger
+    needs: [build-api, build-frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+          GHCR_USER: ${{ github.actor }}
+          API_IMAGE: ${{ needs.build-api.outputs.image }}
+          FRONTEND_IMAGE: ${{ needs.build-frontend.outputs.image }}
+        with:
+          host: ${{ secrets.HOSTINGER_VPS_HOST }}
+          username: ${{ secrets.HOSTINGER_VPS_USER }}
+          key: ${{ secrets.HOSTINGER_VPS_SSH_KEY }}
+          port: 22
+          timeout: 600s
+          envs: GHCR_TOKEN,GHCR_USER,API_IMAGE,FRONTEND_IMAGE
+          script: |
+            set -euo pipefail
+
+            INSTALL_DIR="${KORTIX_HOME:-$HOME/.kortix}"
+            ENV_FILE="$INSTALL_DIR/.env"
+            LOCK_FILE="$INSTALL_DIR/deploy-hostinger.lock"
+
+            if [ ! -f "$ENV_FILE" ]; then
+              echo "Kortix install not found at $INSTALL_DIR"
+              exit 1
+            fi
+
+            cd "$INSTALL_DIR"
+
+            exec 9>"$LOCK_FILE"
+            flock 9
+
+            cp "$ENV_FILE" "$ENV_FILE.bak.$(date -u +%Y%m%d%H%M%S)"
+
+            current_env_value() {
+              grep -m1 "^$1=" "$ENV_FILE" 2>/dev/null | cut -d= -f2- || true
+            }
+
+            PREVIOUS_API_IMAGE="$(current_env_value API_IMAGE)"
+            PREVIOUS_FRONTEND_IMAGE="$(current_env_value FRONTEND_IMAGE)"
+
+            set_env_value() {
+              key="$1"
+              value="$2"
+              tmp_file="$(mktemp)"
+
+              if grep -q "^${key}=" "$ENV_FILE"; then
+                awk -v key="$key" -v value="$value" '
+                  BEGIN { prefix = key "=" }
+                  index($0, prefix) == 1 { $0 = prefix value }
+                  { print }
+                ' "$ENV_FILE" > "$tmp_file"
+              else
+                cp "$ENV_FILE" "$tmp_file"
+                printf '%s=%s\n' "$key" "$value" >> "$tmp_file"
+              fi
+
+              cat "$tmp_file" > "$ENV_FILE"
+              rm -f "$tmp_file"
+            }
+
+            rollback() {
+              echo "Deploy failed; rolling back to previous images."
+              if [ -n "$PREVIOUS_API_IMAGE" ]; then
+                set_env_value API_IMAGE "$PREVIOUS_API_IMAGE"
+              fi
+              if [ -n "$PREVIOUS_FRONTEND_IMAGE" ]; then
+                set_env_value FRONTEND_IMAGE "$PREVIOUS_FRONTEND_IMAGE"
+              fi
+              docker compose pull frontend kortix-api || true
+              docker compose up -d frontend kortix-api || true
+            }
+            trap rollback ERR
+
+            printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin >/dev/null
+
+            set_env_value API_IMAGE "$API_IMAGE"
+            set_env_value FRONTEND_IMAGE "$FRONTEND_IMAGE"
+
+            docker compose pull frontend kortix-api
+            docker compose up -d frontend kortix-api
+
+            echo "Waiting for API health..."
+            for i in $(seq 1 60); do
+              if curl -fsS http://127.0.0.1:13738/v1/health >/dev/null 2>&1; then
+                break
+              fi
+              sleep 2
+              if [ "$i" -eq 60 ]; then
+                echo "API health check timed out"
+                exit 1
+              fi
+            done
+
+            echo "Waiting for frontend..."
+            for i in $(seq 1 60); do
+              if curl -fsS http://127.0.0.1:13737 >/dev/null 2>&1; then
+                break
+              fi
+              sleep 2
+              if [ "$i" -eq 60 ]; then
+                echo "Frontend health check timed out"
+                exit 1
+              fi
+            done
+
+            trap - ERR
+            echo "Deploy complete."
+
+      - name: Summary
+        run: |
+          echo "### Hostinger deploy complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "- API: \`${{ needs.build-api.outputs.image }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Frontend: \`${{ needs.build-frontend.outputs.image }}\`" >> "$GITHUB_STEP_SUMMARY"
