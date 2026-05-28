@@ -102,15 +102,23 @@ jobs:
             --prod=false \
             --ignore-scripts
 
-      - name: Resolve module graph (bun build --outdir)
+      - name: Resolve module graph (bun build --outdir --packages external)
         # --outdir (NOT --outfile): the graph has dynamic-import split points,
         # which produce multi-chunk output. --outfile would error on that.
-        # We don't care about the artifacts — just that resolution succeeds.
+        #
+        # --packages external: mark every node_modules import as external so
+        # bun build doesn't try to bundle native bindings (.node binaries like
+        # `cpufeatures.node` from crypto-adjacent transitive deps). This is the
+        # canonical pattern for Bun backends — at runtime `bun run src/index.ts`
+        # resolves these natively; the bundler doesn't need to.
+        # We don't care about the artifacts — just that OUR OWN module graph
+        # resolves cleanly (catches missing internal exports like the Suna
+        # @kortix/db barrel incident — claude-failure-modes §2).
         run: |
           set -euo pipefail
           cd apps/api
           mkdir -p /tmp/_bun_check
-          bun build src/index.ts --outdir /tmp/_bun_check --target bun
+          bun build src/index.ts --outdir /tmp/_bun_check --target bun --packages external
 
   # ── Web build: Turbopack/webpack will link-check the frontend ───────────────
   build-web:
