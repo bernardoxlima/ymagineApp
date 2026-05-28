@@ -7,6 +7,8 @@ Pentest / security review of our own system. Authorized by definition (we own it
 - L3 reference: `../../references/architecture.md` (attack surface: domains, services, RPCs)
 - L3 reference: `../../references/security-state.md` ⚠ (what's already fixed/pending — don't re-report knowns)
 - L3 reference: `../../references/claude-failure-modes.md` §7, §10 (input-validation gaps, secret hygiene)
+- L3 reference: `../../references/stack/backend.md` (alignment flags table — Drizzle CVE-2026-39356, SECURITY DEFINER `SET search_path = ''`, RLS perf-and-correctness patterns, HS256→RS256/EdDSA JWT migration)
+- L3 reference: `../../references/quality-gates-and-deploy-safety.md` (§2 promotion, §6 secrets/SBOM — NIST SP 800-218 SSDF, OWASP DevSecOps)
 - L4 working: scope (which surface — frontend / API / Supabase / full)
 
 ## Process

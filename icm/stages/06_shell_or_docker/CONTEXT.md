@@ -14,6 +14,8 @@ on shell-script code in 4 weeks. Treat any change here as load-bearing.
 
 - **L3 reference: `../../references/claude-failure-modes.md` §1 — READ IN FULL. Every subsection is a real bug Suna shipped.**
 - L3 reference: `../../references/architecture.md` (deploy topology — host vs container)
+- L3 reference: `../../references/quality-gates-and-deploy-safety.md` (§3 health-probe minimum, §4 observability without pegging the VPS — Charity Majors / Gregg USE method, §5 single-host blue/green pattern)
+- L3 reference: `../../references/stack/backend.md` (if editing the api Dockerfile — multi-stage pnpm workspace symlink handling)
 - L4 working: the script / Dockerfile / exec-call you're editing
 
 ## Process

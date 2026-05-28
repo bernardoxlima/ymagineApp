@@ -8,6 +8,11 @@ Default path for any code change. Sequential, human-reviewed, ends in a verified
 - L3 reference: `../../references/architecture.md` (where the code lives, services, boundaries)
 - L3 reference: `../../references/conventions.md` (PT-BR, git flow, verification discipline)
 - L3 reference: `../../references/ci-cd-map.md` (which workflow your change triggers)
+- L3 reference: `../../references/quality-gates-and-deploy-safety.md` (§1 pre-merge gates, §3 post-deploy verification — Humble/Farley/SRE)
+- L3 reference (CONDITIONAL on what you're editing):
+  - If touching `apps/web` → `../../references/stack/frontend.md` (relevant tech sections only)
+  - If touching `apps/api` / `packages/db` / `supabase/migrations` → `../../references/stack/backend.md` (relevant tech sections only)
+  - If editing system prompts / persona prompts / model routing → switch to Stage 07
 - L3 reference: `../../references/deploy-runbook.md` ⚠ (deploy + rollback) — load only at the deploy step
 - L4 working: the feature request / bug description from the user
 

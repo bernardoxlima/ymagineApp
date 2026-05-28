@@ -7,6 +7,7 @@ unless the workflow is correctly catching an app bug.
 
 - L3 reference: `../../references/ci-cd-map.md` (which workflow fires when; what each gate catches)
 - L3 reference: `../../references/claude-failure-modes.md` §8, §9 (wrong CI gate / wasted CI patterns)
+- L3 reference: `../../references/quality-gates-and-deploy-safety.md` (§1 pre-merge sequencing & gate-theater principle from Farley; §6 anti-patterns checklist)
 - L4 working: link to the failing GitHub Actions run, or the symptom (e.g. "deploy didn't fire on push")
 
 ## Process
