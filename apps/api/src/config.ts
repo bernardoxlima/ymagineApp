@@ -140,7 +140,6 @@ const envSchema = z.object({
   // ── Sandbox Platform ──────────────────────────────────────────────────────
   // KORTIX_URL is auto-derived from PORT if not explicitly set (see validateEnv).
   KORTIX_URL:                  optStr,
-  KORTIX_YOLO_URL:             optUrl('https://api-yolo.kortix.com/v1'),
   ALLOWED_SANDBOX_PROVIDERS:   optStrDefault('local_docker'),
   SANDBOX_IMAGE:               optStr,  // overridden below if empty
   KORTIX_LOCAL_IMAGES:         optBoolFalse,
@@ -444,7 +443,6 @@ export const config = {
 
   // ─── Sandbox Provisioning (Platform) ──────────────────────────────────────
   KORTIX_URL: env.KORTIX_URL,
-  KORTIX_YOLO_URL: env.KORTIX_YOLO_URL,
   ALLOWED_SANDBOX_PROVIDERS: allowedProviders,
   SANDBOX_IMAGE: env.SANDBOX_IMAGE || 'kortix/computer:latest',
   KORTIX_LOCAL_IMAGES: env.KORTIX_LOCAL_IMAGES,
