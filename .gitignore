@@ -76,3 +76,9 @@ core/kortix-master/opencode/.kortix/
 .pulumi
 .pulumi/
 .vercel
+
+# ICM workspace — per-run artifacts + operator-only refs
+icm/output/
+icm/references/deploy-runbook.md
+icm/references/security-state.md
+icm/references/integrations.md
