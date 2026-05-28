@@ -52,13 +52,25 @@ Hostinger VPS for internal/enterprise use.
 
 Non-secret maps you CAN rely on here in the repo:
 
+**Project-specific (small, stable)**
 - Architecture & services → `icm/references/architecture.md`
 - Conventions (code, i18n, commits) → `icm/references/conventions.md`
 - Decisions log (why things are the way they are) → `icm/references/decisions.md`
 - **Claude failure modes (don't repeat these)** → `icm/references/claude-failure-modes.md`
 - CI/CD workflow map (which workflow fires when) → `icm/references/ci-cd-map.md`
 
-## The 6 workflows (Layer 2 stages)
+**Stack best practices (official-docs-sourced; load the matching one when editing)**
+- Frontend (Next 15.5 / React 18 / Tailwind 4 / Radix / next-intl / TanStack / Sentry / Konva / fumadocs) → `icm/references/stack/frontend.md`
+- Backend (Hono / Bun 1.2 / Drizzle / Supabase self-hosted / pnpm / Zod / Postgres 15) → `icm/references/stack/backend.md`
+
+**Model profiles (load when editing system prompts, persona prompts, or model routing in apps/api/src/router/config/models.ts)**
+- OpenRouter coding routers (Kimi K2.6, Grok 4.20 multi-agent, MiMo V2.5/V2.5-Pro) → `icm/references/models/coding-routers.md`
+- Frontier flagships + domain specialists (Opus 4.7/4.8, GPT-5.5, Gemini 3.1 Pro/Flash 3.5, Sabiá-4 PT-BR/legal, vision SOTA) + routing matrix → `icm/references/models/frontier-and-specialists.md`
+
+**Engineering theory (cross-cutting; load for any deploy/CI/observability change)**
+- Quality gates + deploy safety (Humble/Farley/SRE/Forsgren/Majors/Gregg, NIST SSDF) → `icm/references/quality-gates-and-deploy-safety.md`
+
+## The 7 workflows (Layer 2 stages)
 
 | Stage | When to use |
 |---|---|
@@ -68,6 +80,7 @@ Non-secret maps you CAN rely on here in the repo:
 | `icm/stages/04_dep_upgrade/` | Framework / dependency upgrade — Suna's Next 15→16 is the worked example |
 | `icm/stages/05_ci_repair/` | When CI breaks: diagnose the workflow, not the code |
 | `icm/stages/06_shell_or_docker/` | When editing shell scripts, Dockerfiles, host-exec commands — the highest-risk surface |
+| `icm/stages/07_ai_agent_work/` | When editing system prompts, persona prompts, or model routing for Kortix agents |
 
 ## Non-negotiables (this is production — Suna's commits proved it)
 

@@ -9,6 +9,9 @@ upgrade is our worked example** — see [[decisions]] D-004 for the exact change
 - L3 reference: `../../references/conventions.md` (lockfile + CI gate discipline)
 - L3 reference: `../../references/decisions.md` D-004 (the concrete Next 15→16 worklist from Suna)
 - L3 reference: `../../references/claude-failure-modes.md` §2 (Bun + missing exports — relevant if bumping packages/db)
+- L3 reference: `../../references/stack/frontend.md` (MIGRATION FLAGS table — orphan v3 getRequestConfig, 15.5 deprecation warnings preceding Next 16, React 19 hooks moratorium until upgrade)
+- L3 reference: `../../references/stack/backend.md` (ALIGNMENT FLAGS — Drizzle CVE, search_path, pnpm `deploy` vs `--shamefully-hoist`)
+- L3 reference: `../../references/quality-gates-and-deploy-safety.md` (§2 promotion, §5 rollback — Humble & Farley reversibility principle)
 - L3 reference: `../../references/deploy-runbook.md` ⚠ (rollback) — load at merge/deploy step
 - L4 working: the target versions / upgrade goal
 
