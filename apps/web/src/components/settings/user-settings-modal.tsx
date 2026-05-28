@@ -1574,8 +1574,6 @@ function BillingTab({ returnUrl, isActive }: { returnUrl: string; isActive: bool
     const isFreeTier = subscription?.tier_key === 'free' || subscription?.tier_key === 'none';
     const isCancelled = subscription?.is_cancelled || subscription?.cancel_at_period_end;
     const canPurchaseCredits = subscription?.can_purchase_credits || false;
-    const yoloUsage = accountState?.yolo_usage;
-    const yoloResetAt = yoloUsage?.window_reset_at ? new Date(yoloUsage.window_reset_at).toLocaleString() : null;
 
     return (
         <div className="p-4 sm:p-6 space-y-6 min-w-0 max-w-full overflow-x-hidden">
@@ -1613,45 +1611,6 @@ function BillingTab({ returnUrl, isActive }: { returnUrl: string; isActive: bool
                     </span>
                 </div>
             </div>
-
-            {/* ── Kortix YOLO (shown between Credits and Top-up actions) ── */}
-            {yoloUsage && (
-                <div className="border-t border-border pt-4 space-y-2">
-                    <div className="flex items-center justify-between">
-                        <p className="text-xs uppercase tracking-widest text-muted-foreground">Kortix YOLO</p>
-                        <a
-                            href="https://yolo.kortix.com"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
-                        >
-                            Learn more <ExternalLink className="size-3" />
-                        </a>
-                    </div>
-                    <div className="text-2xl font-medium tabular-nums tracking-tight">{yoloUsage.used_percent}%</div>
-                    <p className="text-sm text-muted-foreground">
-                        {yoloUsage.window_started && yoloResetAt
-                            ? `Resets ${yoloResetAt}`
-                            : '5h window starts on first request'}
-                    </p>
-                    <p className="text-xs text-muted-foreground/70 leading-relaxed pt-1">
-                        Every Kortix subscription includes{' '}
-                        <a
-                            href="https://yolo.kortix.com"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="font-medium text-foreground/80 underline underline-offset-2 decoration-foreground/30 hover:decoration-foreground/60"
-                        >
-                            Kortix YOLO
-                        </a>{' '}—
-                        an all-you-can-use AI model subscription powered by our in-house model router.
-                        Choose between <span className="font-medium text-foreground/80">Fast</span> and{' '}
-                        <span className="font-medium text-foreground/80">Think</span> in the model selector
-                        by default. Zero credit cost; the rolling 5&nbsp;hour window resets automatically
-                        so you can keep building without thinking about usage.
-                    </p>
-                </div>
-            )}
 
             {/* ── Auto top-up (primary — recommended first so users avoid this altogether) ── */}
             {canPurchaseCredits && (

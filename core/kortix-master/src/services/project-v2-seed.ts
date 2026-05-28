@@ -60,15 +60,10 @@ export function globalContextPath(fallbackPath?: string | null): string {
 }
 
 /**
- * Resolve the default `providerID/modelID` for seeded agents based on what
- * the running sandbox actually has credentials for. Order (explicit signals
- * win over inferred ones):
+ * Resolve the default `providerID/modelID` for seeded agents. Order:
  *   1. per-call `override` (e.g. the caller's session model)
  *   2. `KORTIX_DEFAULT_AGENT_MODEL` env
- *   3. direct `ANTHROPIC_API_KEY` — if the user set it, they want Anthropic
- *   4. cloud: `kortix-yolo/think` when yolo keys are injected (prod billing)
- *   5. local dev via kortix router: `kortix/minimax-m27`
- *   6. last resort: `kortix-yolo/think` (upstream picks up when provisioned)
+ *   3. default: `anthropic/claude-sonnet-4-6` (the only opencode provider after D-020)
  *
  * Kept as a function so env changes between spawns (rare) are respected, and
  * so callers that want to pass a session-level model can override per-call
@@ -79,16 +74,7 @@ export function resolveDefaultModel(opts?: { override?: string | null }): string
   if (override) return override
   const envOverride = process.env.KORTIX_DEFAULT_AGENT_MODEL?.trim()
   if (envOverride) return envOverride
-  if (process.env.ANTHROPIC_API_KEY) {
-    return 'anthropic/claude-sonnet-4-6'
-  }
-  if (process.env.KORTIX_YOLO_API_KEY && process.env.KORTIX_YOLO_URL) {
-    return 'kortix-yolo/think'
-  }
-  if (process.env.KORTIX_TOKEN && process.env.KORTIX_API_URL) {
-    return 'kortix/minimax-m27'
-  }
-  return 'kortix-yolo/think'
+  return 'anthropic/claude-sonnet-4-6'
 }
 
 /**

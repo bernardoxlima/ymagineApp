@@ -58,44 +58,26 @@ export const MODELS: Record<string, ModelConfig> = {
     tier: 'free',
     cacheReadPer1M: 0.10,
   },
-  // Opencode-side aliases (from core/kortix-master/opencode/opencode.jsonc).
-  // Opencode's openai-compatible client ships the alias as the model param
-  // — e.g. `kortix/minimax-m27`, not the resolved upstream id — so the
-  // router needs to translate them. Without these, every agent call from
-  // opencode 400s with "is not a valid model ID" and PM/team hangs at
-  // 0 tokens / ready_at=null.
-  'kortix/minimax-m27': {
-    openrouterId: 'minimax/minimax-m2.7',
-    inputPer1M: 0.30,
-    outputPer1M: 1.20,
-    contextWindow: 204800,
-    tier: 'free',
-    cacheReadPer1M: 0.06,
-  },
-  'kortix/glm-turbo': {
-    openrouterId: 'z-ai/glm-5-turbo',
-    inputPer1M: 1.20,
-    outputPer1M: 4.00,
-    contextWindow: 202752,
-    tier: 'free',
-    cacheReadPer1M: 0.24,
-  },
-  'kortix/kimi': {
-    openrouterId: 'moonshotai/kimi-k2.5',
-    inputPer1M: 0.45,
-    outputPer1M: 2.20,
-    contextWindow: 262144,
-    tier: 'free',
-    cacheReadPer1M: 0.225,
-  },
-  'kortix/minimax': {
-    openrouterId: 'minimax/minimax-m2.5',
-    inputPer1M: 0.20,
-    outputPer1M: 1.17,
-    contextWindow: 196608,
-    tier: 'free',
-    cacheReadPer1M: 0.10,
-  },
+};
+
+/**
+ * Legacy alias map — model IDs that may still appear in persisted state
+ * (DB rows, user preferences, agent definitions) after the kortix-yolo
+ * provider was removed (decisions.md D-020). Each entry rewrites a legacy
+ * ID to the canonical upstream ID so requests with stale model selectors
+ * don't 400 at the provider.
+ */
+const LEGACY_ALIAS_MAP: Record<string, string> = {
+  // kortix/* aliases — used by the (removed) `kortix` opencode provider
+  'kortix/minimax-m27': 'minimax/minimax-m2.7',
+  'kortix/glm-turbo': 'z-ai/glm-5-turbo',
+  'kortix/kimi': 'moonshotai/kimi-k2.5',
+  'kortix/minimax': 'minimax/minimax-m2.5',
+  // kortix-yolo/* — used by the (removed) `kortix-yolo` opencode provider.
+  // Both Fast and Think mapped to Anthropic Sonnet — that's now the canonical
+  // path (per opencode.jsonc after the removal).
+  'kortix-yolo/fast': 'anthropic/claude-sonnet-4-6',
+  'kortix-yolo/think': 'anthropic/claude-sonnet-4-6',
 };
 
 /**
@@ -118,14 +100,18 @@ export const DEFAULT_MODEL_ID = 'minimax/minimax-m2.7';
  * 3. Zero pricing (billing skipped) if completely unknown
  */
 export function getModel(modelId: string): ModelConfig {
-  const openrouterId = modelId.startsWith('openrouter/')
-    ? modelId.replace('openrouter/', '')
-    : modelId;
+  // Rewrite legacy model IDs (kortix/*, kortix-yolo/*) to their canonical
+  // upstream equivalents before any lookup. See LEGACY_ALIAS_MAP + D-020.
+  const normalizedId = LEGACY_ALIAS_MAP[modelId] ?? modelId;
 
-  const registryEntry = MODELS[modelId] ?? MODELS[openrouterId];
+  const openrouterId = normalizedId.startsWith('openrouter/')
+    ? normalizedId.replace('openrouter/', '')
+    : normalizedId;
+
+  const registryEntry = MODELS[normalizedId] ?? MODELS[openrouterId];
 
   // models.dev is source of truth for pricing — always wins if available
-  const livePricing = getModelPricing(modelId) ?? getModelPricing(openrouterId);
+  const livePricing = getModelPricing(normalizedId) ?? getModelPricing(openrouterId);
 
   if (livePricing) {
     return {

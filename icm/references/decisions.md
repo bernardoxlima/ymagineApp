@@ -161,3 +161,62 @@ symlink workaround (lines 71-77). The pnpm-recommended approach for Docker multi
 is `pnpm deploy --filter=<service> /out` which produces a self-contained, symlink-free
 deployment that survives `COPY --from=deps` cleanly. Migrating to this eliminates the
 agent-tunnel workaround. Source: stack/backend.md.
+
+## D-020 · `kortix-yolo` provider removed (and dead `kortix` provider deleted)
+
+Removed any dependency on creating an account at kortix.com (the upstream company
+hosted product). Specifically:
+
+- **opencode.jsonc** — deleted the `kortix-yolo` provider block (was using
+  `@ai-sdk/anthropic` against `api-yolo.kortix.com`) AND the commented-out `kortix`
+  provider block (dead code from a prior router experiment).
+- **`apps/api/src/router/config/models.ts`** — deleted the 4 `kortix/*` aliases
+  (`kortix/minimax-m27`, `kortix/glm-turbo`, `kortix/kimi`, `kortix/minimax`); they
+  existed solely to translate the (commented-out) `kortix` opencode provider.
+- **Legacy alias map added** — `LEGACY_ALIAS_MAP` in the same file rewrites stale
+  IDs to canonical upstream equivalents so persisted state (DB rows, user prefs,
+  agent definitions still pointing at `kortix-yolo/think` etc.) continues to work
+  without 400s at the provider. Mappings:
+  - `kortix/minimax-m27` → `minimax/minimax-m2.7`
+  - `kortix/glm-turbo` → `z-ai/glm-5-turbo`
+  - `kortix/kimi` → `moonshotai/kimi-k2.5`
+  - `kortix/minimax` → `minimax/minimax-m2.5`
+  - `kortix-yolo/fast` → `anthropic/claude-sonnet-4-6`
+  - `kortix-yolo/think` → `anthropic/claude-sonnet-4-6`
+  This is `claude-failure-modes.md` §7 (happy-path features that forget existing
+  data) applied: removing the provider AND covering pre-existing references.
+- **UI provider picker** — removed `kortix-yolo` + `kortix` from
+  `MODEL_SELECTOR_PROVIDER_IDS`, `PROVIDER_LABELS`, `PROVIDER_NOTES`,
+  `PROVIDER_ICON_MAP` in `apps/web/src/components/providers/provider-branding.tsx`.
+- **Sandbox env injection** — stopped writing `KORTIX_YOLO_API_KEY` / `KORTIX_YOLO_URL`
+  into sandbox containers across `apps/api/src/pool/env-injector.ts`,
+  `apps/api/src/platform/providers/justavps.ts`,
+  `apps/api/src/platform/services/sandbox-auth.ts`,
+  `apps/api/src/platform/services/sandbox-health.ts`,
+  `apps/api/src/scripts/rekey-restored-sandboxes.ts`.
+- **`apps/api/src/config.ts`** — removed `KORTIX_YOLO_URL` env var definition.
+- **`core/kortix-master/src/index.ts` + `bootstrap-env.ts` + test** — removed
+  `KORTIX_YOLO_API_KEY` and `KORTIX_YOLO_URL` from `CORE_VARS` and the canonical-token
+  normalize loop.
+- **`account-state.ts`** — deleted `getYoloUsage()` function (was calling
+  `KORTIX_YOLO_URL/me`), removed `yolo_usage` field from `AccountStateResponse`
+  type (`apps/api/src/types.ts` + `apps/web/src/lib/api/billing.ts`), and deleted
+  the "Kortix YOLO" card UI in `apps/web/src/components/settings/user-settings-modal.tsx`
+  (which linked to `https://yolo.kortix.com`).
+- **`project-v2-seed.ts`** — simplified `resolveDefaultModel()` to only:
+  (1) `override`, (2) `KORTIX_DEFAULT_AGENT_MODEL` env, (3) default to
+  `anthropic/claude-sonnet-4-6`. The previous YOLO and `kortix/minimax-m27`
+  fallback branches are gone (the `LEGACY_ALIAS_MAP` covers persisted state).
+- **`ticket-tools.ts`** — updated `default_model` tool-arg docstring example.
+- **`run-opencode-serve.sh`** — removed `KORTIX_YOLO_*` from the post-boot
+  env-source list.
+
+NOT touched (separate concern):
+- `kortix_<32>` / `kortix_sb_<32>` API key prefixes — these are THIS instance's own
+  keys, not pointing at kortix.com.
+- `@kortix/*` workspace package names — internal monorepo naming.
+- `kortix` Postgres schema — internal DB schema name.
+- `kortix.com` references in `apps/web/public/robots.txt` Sitemap,
+  `apps/web/src/app/share/[shareId]/layout.tsx` fallback APP_URL, and legal contact
+  emails in `apps/web/src/app/legal/page.tsx` — branding leaks, separate decision
+  (would need confirmation of replacement domains/emails first).
