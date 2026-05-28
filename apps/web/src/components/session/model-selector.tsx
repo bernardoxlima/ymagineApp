@@ -28,6 +28,7 @@ import type { FlatModel } from './session-chat-input';
 import type { ProviderListResponse } from '@/hooks/opencode/use-opencode-sessions';
 import {
   MODEL_SELECTOR_PROVIDER_IDS,
+  HIDDEN_PROVIDER_IDS,
   PROVIDER_LABELS,
   ProviderLogo,
 } from '@/components/providers/provider-branding';
@@ -126,6 +127,9 @@ export function ModelSelector({ models, selectedModel, onSelect }: ModelSelector
     const q = search.toLowerCase();
     return models
       .filter((m) => {
+        // Hide providers that depend on a kortix.com account (D-020 / D-021).
+        // Filter unconditionally — even matches via search query are hidden.
+        if (HIDDEN_PROVIDER_IDS.has(m.providerID)) return false;
         if (!q && !modelStore.isVisible({ providerID: m.providerID, modelID: m.modelID })) return false;
         return !q || (m.modelName || '').toLowerCase().includes(q) || (m.modelID || '').toLowerCase().includes(q) || (m.providerName || '').toLowerCase().includes(q);
       })
