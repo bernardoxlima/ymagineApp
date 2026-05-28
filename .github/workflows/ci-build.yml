@@ -1,0 +1,161 @@
+name: CI Build (PR gate)
+
+# Boot-safety gate for pull requests. NO deploy. NO GHCR push.
+# Catches the specific bug classes that have hit DenisCDev/suna in production:
+#   §2 of icm/references/claude-failure-modes.md
+#   - Missing/unresolved exports in apps/api → would crash container at boot
+#     (Bun runs TS directly without a compile step, so this only surfaces at runtime)
+#   - Frontend link errors that Webpack/Turbopack catch but local dev hides
+#
+# Path-filtered so unrelated PRs don't pay the build cost.
+# tsc --noEmit is intentionally NOT used (apps/api has ~36 tolerated pre-existing
+# type errors; that gate would be too noisy and would block every PR).
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/api/**'
+      - 'apps/web/**'
+      - 'packages/**'
+      - 'supabase/migrations/**'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.github/workflows/ci-build.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ci-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Detect which side(s) changed so we only build what matters ──────────────
+  detect-changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      api: ${{ steps.filter.outputs.api }}
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            api:
+              - 'apps/api/**'
+              - 'packages/**'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - 'supabase/migrations/**'
+            web:
+              - 'apps/web/**'
+              - 'packages/shared/**'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+      - name: Summary
+        run: |
+          {
+            echo "### Changes detected"
+            echo "- API: ${{ steps.filter.outputs.api }}"
+            echo "- Web: ${{ steps.filter.outputs.web }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ── API boot-safety: bun build resolves the full module graph ───────────────
+  # This catches "Export named 'X' not found" before it reaches prod
+  # (see icm/references/claude-failure-modes.md §2).
+  build-api:
+    name: API boot-safety (bun build)
+    needs: detect-changes
+    if: needs.detect-changes.outputs.api == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2
+
+      - name: Install dependencies (api + workspace deps it needs)
+        run: |
+          corepack enable pnpm
+          pnpm install \
+            --filter ./apps/api... \
+            --frozen-lockfile \
+            --shamefully-hoist \
+            --prod=false \
+            --ignore-scripts
+
+      - name: Resolve module graph (bun build --outdir)
+        # --outdir (NOT --outfile): the graph has dynamic-import split points,
+        # which produce multi-chunk output. --outfile would error on that.
+        # We don't care about the artifacts — just that resolution succeeds.
+        run: |
+          set -euo pipefail
+          cd apps/api
+          mkdir -p /tmp/_bun_check
+          bun build src/index.ts --outdir /tmp/_bun_check --target bun
+
+  # ── Web build: Turbopack/webpack will link-check the frontend ───────────────
+  build-web:
+    name: Web build (next build)
+    needs: detect-changes
+    if: needs.detect-changes.outputs.web == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: |
+          corepack enable pnpm
+          pnpm install --frozen-lockfile
+
+      - name: Build (standalone)
+        # Heap bumped to 8GB — Next 15+ Tailwind 4 + large App Router can exceed 4GB.
+        # Suna had to do the same (see f8b8d3e91 in main).
+        run: |
+          NODE_OPTIONS=--max-old-space-size=8192 \
+          NEXT_TELEMETRY_DISABLED=1 \
+          NEXT_PUBLIC_ENV_MODE=local \
+          NEXT_PUBLIC_BACKEND_URL=http://localhost:8008/v1 \
+          NEXT_PUBLIC_SUPABASE_URL=https://placeholder.supabase.co \
+          NEXT_PUBLIC_SUPABASE_ANON_KEY=local-build-placeholder-anon-key \
+          NEXT_PUBLIC_BILLING_ENABLED=false \
+          NEXT_OUTPUT=standalone \
+          pnpm --filter ./apps/web build
+
+  # ── Aggregate result so branch protection can require a single status ───────
+  gate:
+    name: PR gate
+    needs: [detect-changes, build-api, build-web]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Decide
+        run: |
+          set -euo pipefail
+          API="${{ needs.build-api.result }}"
+          WEB="${{ needs.build-web.result }}"
+          # 'skipped' counts as pass (path filter didn't trigger that side)
+          for r in "$API" "$WEB"; do
+            case "$r" in
+              success|skipped) ;;
+              *) echo "Gate FAILED: api=$API web=$WEB"; exit 1 ;;
+            esac
+          done
+          echo "Gate PASSED: api=$API web=$WEB"
