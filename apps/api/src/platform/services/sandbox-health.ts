@@ -207,10 +207,6 @@ async function attemptKeySync(baseUrl: string, canonicalServiceKey: string, auth
     TUNNEL_TOKEN: canonicalServiceKey,
     KORTIX_API_URL: internalApiUrl,
     TUNNEL_API_URL: internalApiUrl,
-    ...(config.ENV_MODE === 'cloud' ? {
-      KORTIX_YOLO_API_KEY: canonicalServiceKey,
-      KORTIX_YOLO_URL: config.KORTIX_YOLO_URL,
-    } : {}),
   };
 
   for (let attempt = 0; attempt < MAX_SYNC_RETRIES; attempt++) {

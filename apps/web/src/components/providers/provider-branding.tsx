@@ -13,8 +13,6 @@ export const POPULAR_PROVIDER_IDS = [
 ];
 
 export const MODEL_SELECTOR_PROVIDER_IDS = [
-  'kortix-yolo',
-  'kortix',
   'anthropic',
   'openai',
   'github-copilot',
@@ -31,8 +29,6 @@ export const PROVIDER_LABELS: Record<string, string> = {
   moonshotai: 'Moonshot',
   'moonshotai-cn': 'Moonshot',
   opencode: 'OpenCode Zen',
-  'kortix-yolo': 'Kortix Yolo',
-  kortix: 'Kortix',
   firmware: 'Firmware',
   bedrock: 'AWS Bedrock',
   openrouter: 'OpenRouter',
@@ -109,7 +105,6 @@ export const PROVIDER_HINTS: Record<string, string> = {
 
 export const PROVIDER_NOTES: Record<string, string> = {
   opencode: 'One key for many hosted models',
-  'kortix-yolo': 'Fast and Think models from Kortix Yolo',
   anthropic: 'Claude Pro/Max subscription or your own API key',
   openai: 'ChatGPT Pro/Plus subscription or your own API key',
   'github-copilot': 'Reuse your existing Copilot plan',
@@ -122,8 +117,6 @@ const PROVIDER_ICON_MAP: Record<string, { src?: string; fallback: string }> = {
   anthropic: { src: '/provider-icons/anthropic.svg', fallback: 'AN' },
   openai: { src: '/provider-icons/openai.svg', fallback: 'OA' },
   opencode: { src: '/provider-icons/opencode.svg', fallback: 'OC' },
-  'kortix-yolo': { src: '/kortix-symbol.svg', fallback: 'KY' },
-  kortix: { src: '/kortix-symbol.svg', fallback: 'KX' },
   'github-copilot': { src: '/provider-icons/github-copilot.svg', fallback: 'GH' },
   google: { src: '/provider-icons/google.svg', fallback: 'GO' },
   openrouter: { src: '/provider-icons/openrouter.svg', fallback: 'OR' },
