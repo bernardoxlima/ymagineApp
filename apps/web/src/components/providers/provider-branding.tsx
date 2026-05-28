@@ -21,6 +21,19 @@ export const MODEL_SELECTOR_PROVIDER_IDS = [
   'vercel',
 ];
 
+/**
+ * Provider IDs to HIDE from the model selector even if OpenCode (running
+ * inside the sandbox container) returns them. Defensive filter — kortix.com
+ * dependencies are out per D-020, but the sandbox image is rebuilt by an
+ * upstream workflow and still ships the old `opencode.jsonc` until that
+ * pipeline catches up. This filter ensures the UI is correct regardless of
+ * what the runtime says. See D-021.
+ */
+export const HIDDEN_PROVIDER_IDS = new Set([
+  'kortix-yolo',
+  'kortix',
+]);
+
 export const PROVIDER_LABELS: Record<string, string> = {
   anthropic: 'Anthropic',
   openai: 'OpenAI',
