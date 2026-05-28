@@ -24,6 +24,14 @@ on:
       - '.github/workflows/ci-build.yml'
   workflow_dispatch:
 
+# dorny/paths-filter calls the PR listFiles API → needs explicit pull-requests: read.
+# Without this, the default GITHUB_TOKEN cannot read the PR file list and the
+# action errors with "Resource not accessible by integration" (then the
+# downstream build jobs skip, and the gate can falsely "pass" — see fix below).
+permissions:
+  contents: read
+  pull-requests: read
+
 concurrency:
   group: ci-build-${{ github.ref }}
   cancel-in-progress: true
@@ -149,9 +157,16 @@ jobs:
       - name: Decide
         run: |
           set -euo pipefail
+          DETECT="${{ needs.detect-changes.result }}"
           API="${{ needs.build-api.result }}"
           WEB="${{ needs.build-web.result }}"
-          # 'skipped' counts as pass (path filter didn't trigger that side)
+          # detect-changes MUST succeed — if it fails, the build legs skip and the
+          # gate would falsely pass on `case skipped`. Check it explicitly first.
+          if [ "$DETECT" != "success" ]; then
+            echo "Gate FAILED: detect-changes=$DETECT (api=$API web=$WEB skipped as a consequence)"
+            exit 1
+          fi
+          # 'skipped' counts as pass for the build legs (path filter didn't trigger that side)
           for r in "$API" "$WEB"; do
             case "$r" in
               success|skipped) ;;
