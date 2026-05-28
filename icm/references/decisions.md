@@ -220,3 +220,37 @@ NOT touched (separate concern):
   `apps/web/src/app/share/[shareId]/layout.tsx` fallback APP_URL, and legal contact
   emails in `apps/web/src/app/legal/page.tsx` — branding leaks, separate decision
   (would need confirmation of replacement domains/emails first).
+
+## D-021 · Frontend HIDDEN_PROVIDER_IDS filter (defensive — supplements D-020)
+
+After D-020 shipped, the model selector still showed `kortix-yolo/fast` and
+`kortix-yolo/think`. Investigation revealed:
+
+- The model picker's source of truth is `client.provider.list()` from the OpenCode
+  SDK — OpenCode runs INSIDE the sandbox container.
+- OpenCode reads its provider list from `opencode.jsonc` baked into the sandbox
+  Docker image (`kortix/computer:<tag>` pulled from upstream Docker Hub at install).
+- `deploy-hostinger.yml` rebuilds api + frontend only. The sandbox image is built
+  by `snapshot-build.yml` (and ultimately upstream `kortix-ai/suna`). Our fork's
+  edits to `core/kortix-master/opencode/opencode.jsonc` only reach prod when that
+  separate pipeline catches up.
+- Even after our code change merges, existing sandbox containers keep the old
+  config baked in until the image is replaced.
+- `apps/web/src/components/providers/provider-branding.tsx`
+  `MODEL_SELECTOR_PROVIDER_IDS` is only an ORDERING signal (selector lines 147-152
+  used it to sort) — entries not in the list still RENDER, just at the bottom.
+
+**Fix.** Add `HIDDEN_PROVIDER_IDS` (a Set) to `provider-branding.tsx` and filter
+`visibleModels` in `model-selector.tsx` unconditionally — even search-query matches
+are hidden. Defensive: stays correct regardless of what OpenCode returns, regardless
+of localStorage cache state, regardless of when (if ever) the sandbox image picks up
+our `opencode.jsonc` changes.
+
+If a user previously had `kortix-yolo/think` as their selected model, the picker
+falls back to displaying the first available model name; the API request still
+routes correctly because of `LEGACY_ALIAS_MAP` in `apps/api/src/router/config/models.ts`
+(rewrites to `anthropic/claude-sonnet-4-6`).
+
+**Future cleanup.** When the sandbox image carries our updated `opencode.jsonc`
+(separate work), the filter becomes redundant — but harmless. Leave it as
+belt-and-suspenders.
