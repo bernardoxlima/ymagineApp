@@ -292,10 +292,19 @@ direction — future upstream syncs will keep trying to remove it.
 2. `deploy-hostinger.yml` + `deploy-dev.yml` — set `NEXT_PUBLIC_ENABLE_PROJECTS=true` at
    **build time** (the flag is baked into the JS bundle by Next; it is NOT a runtime var,
    so setting it via `docker exec` on the VPS does nothing — the bundle was already compiled).
-3. **Sandbox-side (operator, not in repo):** the sandbox MUST also have
-   `KORTIX_PROJECTS_ENABLED=true` or the LLM project/ticket tools don't register and the
-   Board API calls 503. This lives in the gitignored runbook / sandbox config — see
-   `deploy-runbook.md`.
+3. **Sandbox-side — baked into provisioning** (`apps/api/src/pool/env-injector.ts`):
+   added `KORTIX_PROJECTS_ENABLED: 'true'` to `buildEnvPayload()`. `inject()` pushes it
+   to the running container's `/env` endpoint AND persists it to the host `/etc/justavps/env`
+   (read by `docker run --env-file`), so it lands at config.ts priority 1 (process.env) and
+   `config.PROJECTS_ENABLED` resolves true on boot → the LLM `project_*`/`ticket_*` tools
+   register. Without it the Board UI loads but every ticket call 503s.
+   - **New / re-provisioned / updated sandboxes:** get the flag automatically (inject runs on
+     claim / provision / sandbox-update).
+   - **An already-running sandbox** picks it up after one inject+restart cycle — cleanest via
+     the in-app sandbox **Update**/restart control (re-runs injection), NOT raw SSH. Fallback
+     if needed: `docker exec <c> sh -c 'printf true > /persistent/.kortix-projects-enabled'`
+     then `docker restart <c>` (the `/persistent` file is priority 2, survives respawn;
+     config reads it with `.trim()`). Container name lives in the gitignored `deploy-runbook.md`.
 
 **NOT restored (deliberately).** The `/projects` list route (stub redirect) and the
 `instance-projects` settings tab (its panel `instance-projects-panel.tsx` was deleted) —
