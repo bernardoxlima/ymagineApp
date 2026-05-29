@@ -653,7 +653,7 @@ function SidebarSections() {
           <CollapsibleTrigger asChild>
             <Button variant="sidebar" className="rounded-lg">
               <ListTree className="h-4 w-4 flex-shrink-0 text-sidebar-foreground" />
-              <span className="flex-1 text-left">Sessions</span>
+              <span className="flex-1 text-left">Sessões</span>
               <ChevronDown className="h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 group-data-[state=closed]/sessions:-rotate-90" />
             </Button>
           </CollapsibleTrigger>
@@ -677,7 +677,7 @@ function SidebarSections() {
               className="flex items-center gap-3 flex-1 px-3 py-2 rounded-lg text-[13px] text-sidebar-foreground hover:bg-sidebar-accent transition-colors duration-150 cursor-pointer"
             >
               <History className="h-4 w-4 flex-shrink-0" />
-              <span className="flex-1 text-left">Previous Chats</span>
+              <span className="flex-1 text-left">Conversas anteriores</span>
               <span className="text-[10px] tabular-nums text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
                 {legacyData!.total}
               </span>
@@ -1340,13 +1340,13 @@ export function SidebarLeft({ ...props }: React.ComponentProps<typeof Sidebar>) 
           />
           <CollapsedIconButton
             icon={<SquarePen className="h-4 w-4" />}
-            label="New session"
+            label="Nova sessão"
             onClick={handleNewSession}
             disabled={createSession.isPending}
           />
           <CollapsedIconButton
             icon={<Search className="h-4 w-4" />}
-            label="Search"
+            label="Buscar"
             onClick={() => {
               document.dispatchEvent(
                 new KeyboardEvent('keydown', {
@@ -1362,12 +1362,12 @@ export function SidebarLeft({ ...props }: React.ComponentProps<typeof Sidebar>) 
           />
           <CollapsedIconButton
             icon={<FolderOpen className="h-4 w-4" />}
-            label="Files"
+            label="Arquivos"
             isActive={pathname === '/files'}
             onClick={() => {
               openTabAndNavigate({
                 id: 'page:/files',
-                title: 'Files',
+                title: 'Arquivos',
                 type: 'page',
                 href: '/files',
               });
@@ -1390,7 +1390,7 @@ export function SidebarLeft({ ...props }: React.ComponentProps<typeof Sidebar>) 
           )}
           <CollapsedIconButton
             icon={<ListTree className="h-4 w-4" />}
-            label="Sessions"
+            label="Sessões"
             flyoutContent={<SessionsFlyout collapsed />}
           />
         </div>
@@ -1410,7 +1410,7 @@ export function SidebarLeft({ ...props }: React.ComponentProps<typeof Sidebar>) 
               className="group/row rounded-lg"
             >
               <SquarePen className="h-4 w-4 flex-shrink-0 text-sidebar-foreground" />
-              <span className="flex-1 text-left">{createSession.isPending ? 'Creating...' : 'New session'}</span>
+              <span className="flex-1 text-left">{createSession.isPending ? 'Criando...' : 'Nova sessão'}</span>
               <KbdHint mod={isMac ? '\u2318' : 'Ctrl'} letter="J" />
             </Button>
 
@@ -1432,8 +1432,26 @@ export function SidebarLeft({ ...props }: React.ComponentProps<typeof Sidebar>) 
               className="group/row rounded-lg"
             >
               <Search className="h-4 w-4 flex-shrink-0 text-sidebar-foreground" />
-              <span className="flex-1 text-left">Search</span>
+              <span className="flex-1 text-left">Buscar</span>
               <KbdHint mod={isMac ? '\u2318' : 'Ctrl'} letter="K" />
+            </Button>
+
+            {/* Arquivos - left-sidebar entry to /files (mirrors suna). */}
+            <Button
+              onClick={() => {
+                openTabAndNavigate({
+                  id: 'page:/files',
+                  title: 'Arquivos',
+                  type: 'page',
+                  href: '/files',
+                });
+                if (isMobile) setOpenMobile(false);
+              }}
+              variant="sidebar"
+              className="group/row rounded-lg"
+            >
+              <FolderOpen className="h-4 w-4 flex-shrink-0 text-sidebar-foreground" />
+              <span className="flex-1 text-left">Arquivos</span>
             </Button>
 
             {/* Projetos — left-sidebar entry → /board (Board / Milestones /
@@ -1458,8 +1476,6 @@ export function SidebarLeft({ ...props }: React.ComponentProps<typeof Sidebar>) 
               </Button>
             )}
 
-            {/* Files lives exclusively on the right sidebar — no redundant
-                entry here. */}
           </nav>
 
           <SidebarSections />
