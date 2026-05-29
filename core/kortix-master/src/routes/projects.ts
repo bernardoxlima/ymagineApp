@@ -272,27 +272,57 @@ projectsRouter.post('/:id/pm-session', async (c) => {
   }
 })
 
-// GET / — list all projects with stats
+// GET / — list projects with stats
 projectsRouter.get('/', async (c) => {
   const db = getDb()
-  const p = ensureGlobalProject(db)
-  const sessionCount = (db.prepare(
+  const global = ensureGlobalProject(db)
+  const countSessions = (pid: string) => (db.prepare(
     'SELECT COUNT(*) as c FROM session_projects WHERE project_id=$pid'
-  ).get({ $pid: p.id }) as { c: number })?.c || 0
-  return c.json([{ ...p, sessionCount, global: true }])
+  ).get({ $pid: pid }) as { c: number })?.c || 0
+
+  // Single-workspace mode (default): collapse to the one global workspace row.
+  if (!config.PROJECTS_ENABLED) {
+    return c.json([{ ...global, sessionCount: countSessions(global.id), global: true }])
+  }
+
+  // Project paradigm ON: enumerate every preserved project row (e.g. the-big-1,
+  // watson) so the UI can list and open them. The global workspace is flagged.
+  const rows = db.prepare('SELECT * FROM projects ORDER BY created_at ASC').all() as ProjectRow[]
+  const all = rows.some((r) => r.id === global.id) ? rows : [global, ...rows]
+  return c.json(all.map((r) => ({
+    ...r,
+    sessionCount: countSessions(r.id),
+    global: r.id === global.id,
+  })))
 })
 
 // GET /:id — single project
 projectsRouter.get('/:id', async (c) => {
   const db = getDb()
-  return c.json({ ...ensureGlobalProject(db), global: true })
+  const global = ensureGlobalProject(db)
+
+  // Project paradigm ON: resolve the real row so the-big-1/watson open as
+  // themselves. Falls back to the global workspace if the id is unknown.
+  if (config.PROJECTS_ENABLED) {
+    const id = decodeURIComponent(c.req.param('id'))
+    const row = db.prepare('SELECT * FROM projects WHERE id=$id').get({ $id: id }) as ProjectRow | null
+    if (row) return c.json({ ...row, global: row.id === global.id })
+  }
+  return c.json({ ...global, global: true })
 })
 
 // GET /:id/sessions — sessions linked to this project via session_projects table
 // Enriches with OpenCode session data (title, time, etc.) from the OC API
 projectsRouter.get('/:id/sessions', async (c) => {
   const db = getDb()
-  const p = ensureGlobalProject(db)
+  const globalProject = ensureGlobalProject(db)
+  let p = globalProject
+  if (config.PROJECTS_ENABLED) {
+    const id = decodeURIComponent(c.req.param('id'))
+    const row = db.prepare('SELECT * FROM projects WHERE id=$id').get({ $id: id }) as ProjectRow | null
+    if (row) p = row
+  }
+  const isGlobal = p.id === globalProject.id
 
   // Get session IDs linked to this project
   const links = db.prepare(
@@ -310,18 +340,22 @@ projectsRouter.get('/:id/sessions', async (c) => {
       const body = await res.json() as any
       const allSessions = Array.isArray(body) ? body : (body?.data ?? [])
 
-      // Global workspace mode: every OpenCode session belongs to the one
-      // workspace view. Keep session_projects as compatibility metadata, but
-      // do not hide sessions just because an old project link is missing.
-      for (const s of allSessions) {
-        if (s?.id && !sessionIds.has(s.id)) {
-          try {
-            db.prepare('INSERT OR REPLACE INTO session_projects (session_id, project_id, set_at) VALUES ($sid, $pid, $now)')
-              .run({ $sid: s.id, $pid: p.id, $now: new Date().toISOString() })
-          } catch {}
+      // Global workspace view backfills links for every OpenCode session.
+      // A SPECIFIC project (paradigm on) must NOT claim every session — only
+      // return sessions already linked to it, so the-big-1/watson show theirs.
+      if (isGlobal) {
+        for (const s of allSessions) {
+          if (s?.id && !sessionIds.has(s.id)) {
+            try {
+              db.prepare('INSERT OR REPLACE INTO session_projects (session_id, project_id, set_at) VALUES ($sid, $pid, $now)')
+                .run({ $sid: s.id, $pid: p.id, $now: new Date().toISOString() })
+            } catch {}
+            sessionIds.add(s.id)
+          }
         }
       }
-      const matched = allSessions
+      const visible = isGlobal ? allSessions : allSessions.filter((s: any) => s?.id && sessionIds.has(s.id))
+      const matched = visible
         .sort((a: any, b: any) => (b.time?.updated ?? 0) - (a.time?.updated ?? 0))
 
       // Enrich with task info — which task owns which session
