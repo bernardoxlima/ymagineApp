@@ -302,7 +302,7 @@ export const menuRegistry: MenuItemDef[] = [
     // model, the user-facing label is "Project view" because that's how the
     // user reasons about it. Hidden until the project paradigm flag is on.
     id: 'project-view-quick',
-    label: 'Project view',
+    label: 'Projetos',
     icon: FolderKanban,
     group: 'quickActions',
     subGroup: 'tools',
