@@ -38,6 +38,13 @@ function buildEnvPayload(serviceKey: string, metadata?: Record<string, unknown>)
     FIRECRAWL_API_URL: `${routerBase}/firecrawl`,
     TUNNEL_API_URL: sandboxApiBase,
     TUNNEL_TOKEN: serviceKey,
+    // Ymagine runs the project paradigm ON (board / tickets / milestones).
+    // Injected at priority 1 (process.env via /env + /etc/justavps/env via
+    // --env-file) so kortix-master's config.PROJECTS_ENABLED resolves true on
+    // boot and the LLM project_*/ticket_* tools register. Pairs with the web
+    // build flag NEXT_PUBLIC_ENABLE_PROJECTS=true (D-022). Without this every
+    // (re)provisioned sandbox defaults to false and the Board 503s.
+    KORTIX_PROJECTS_ENABLED: 'true',
   };
 
   // Compute PUBLIC_BASE_URL from JustAVPS metadata so getMasterPublicBaseUrl()

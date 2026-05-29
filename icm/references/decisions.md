@@ -254,3 +254,62 @@ routes correctly because of `LEGACY_ALIAS_MAP` in `apps/api/src/router/config/mo
 **Future cleanup.** When the sandbox image carries our updated `opencode.jsonc`
 (separate work), the filter becomes redundant — but harmless. Leave it as
 belt-and-suspenders.
+
+## D-022 · Projects/Board tab re-enabled — intentional divergence from upstream single-workspace
+
+**Symptom.** The "Project view" tab (Board + Milestones + Team) vanished from the app.
+Reported as "the projects tab in the left sidebar disappeared out of nowhere."
+
+**Root cause.** Upstream Kortix commit `c1aa27084` ("Stabilize OpenCode sandbox runtime",
+author marko-kraemer, 2026-05-06) was pulled into `main` and flipped the product to
+**single-workspace mode**. It:
+- Deleted the `project-view-quick` (`/board`) and `projects` (`/projects`) entries from
+  `apps/web/src/lib/menu-registry.ts` entirely, plus the `instance-projects` settings tab.
+- Removed the flag gate `(!item.requiresProjectsFlag || featureFlags.enableProjects)` from
+  `getItemsByGroup`.
+- Gutted `app/(dashboard)/projects/[id]/page.tsx` (949 lines → stub) and turned
+  `app/(dashboard)/projects/page.tsx` into a `redirect('/workspace')`.
+- Deleted `instance-projects-panel.tsx` (−475), `project-selector.tsx` (−283),
+  `channel-project-picker.tsx` (−73).
+- Left `featureFlags.enableProjects` (`NEXT_PUBLIC_ENABLE_PROJECTS`, default **false**) as
+  the master gate for the remaining project surfaces (`/board` redirect, project-only
+  agents, "add to board" trigger).
+
+The tab was a **right-sidebar** entry (`getNavItemsClustered('rightSidebar', ...)` in
+`sidebar-right.tsx`), NOT left — `sidebar-left.tsx` renders a hardcoded nav and never
+consumed project entries. The "left sidebar" report was a misremember.
+
+**Decision (Bernardo: re-enable; merge was accidental).** Re-surface the **Project view**
+tab and accept that this is a **deliberate fork-divergence** from upstream's single-workspace
+direction — future upstream syncs will keep trying to remove it.
+
+**Mechanism (this PR).**
+1. `menu-registry.ts` — re-import `featureFlags` + `FolderKanban`, re-add the
+   `project-view-quick` entry (`href: /board`, `requiresProjectsFlag: true`,
+   `showIn: rightSidebar + commandPalette`), restore the gate in `getItemsByGroup`.
+   This also re-aligns with the `core/kortix-master/tests/e2e/web-paradigm.sh` assertions
+   that were silently failing against the diverged code.
+2. `deploy-hostinger.yml` + `deploy-dev.yml` — set `NEXT_PUBLIC_ENABLE_PROJECTS=true` at
+   **build time** (the flag is baked into the JS bundle by Next; it is NOT a runtime var,
+   so setting it via `docker exec` on the VPS does nothing — the bundle was already compiled).
+3. **Sandbox-side — baked into provisioning** (`apps/api/src/pool/env-injector.ts`):
+   added `KORTIX_PROJECTS_ENABLED: 'true'` to `buildEnvPayload()`. `inject()` pushes it
+   to the running container's `/env` endpoint AND persists it to the host `/etc/justavps/env`
+   (read by `docker run --env-file`), so it lands at config.ts priority 1 (process.env) and
+   `config.PROJECTS_ENABLED` resolves true on boot → the LLM `project_*`/`ticket_*` tools
+   register. Without it the Board UI loads but every ticket call 503s.
+   - **New / re-provisioned / updated sandboxes:** get the flag automatically (inject runs on
+     claim / provision / sandbox-update).
+   - **An already-running sandbox** picks it up after one inject+restart cycle — cleanest via
+     the in-app sandbox **Update**/restart control (re-runs injection), NOT raw SSH. Fallback
+     if needed: `docker exec <c> sh -c 'printf true > /persistent/.kortix-projects-enabled'`
+     then `docker restart <c>` (the `/persistent` file is priority 2, survives respawn;
+     config reads it with `.trim()`). Container name lives in the gitignored `deploy-runbook.md`.
+
+**NOT restored (deliberately).** The `/projects` list route (stub redirect) and the
+`instance-projects` settings tab (its panel `instance-projects-panel.tsx` was deleted) —
+only the working `/board` Project view is brought back. Re-add those later only if needed.
+
+This is `claude-failure-modes.md` discipline: a runtime-named upstream merge quietly
+removed a user-facing feature; the fix restores it at the right layer (build flag + registry)
+rather than poking the running container. [[D-006]] [[D-021]]
