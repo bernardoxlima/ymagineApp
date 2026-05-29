@@ -335,3 +335,26 @@ intentionally PT-BR** to match suna even though the rest of the app is still EN 
 locale flip is a separate, Bernardo-gated decision). Do NOT "fix" these back to English as an
 inconsistency; the mixed state is deliberate until the locale flip happens. `Arquivos`/`Files`
 appears in BOTH sidebars by design.
+
+**Addendum 3 (full multi-project RESTORE — "vai com tudo").** Root cause of "the-big-1/watson
+appear in Files but not as Projects" (confirmed live: kortix.db = 124KB intact, folders present;
+9-agent workflow + 3 adversarial verifiers, ~90-95%): the single-workspace collapse hid real
+project rows at TWO layers — (a) the sandbox API (`kortix-master`) returned only the global
+workspace, and (b) the web UI deleted every project-listing surface. Restore (branch
+`fix/multiproject-restore`), all gated by `PROJECTS_ENABLED` so single-workspace stays intact off:
+- **Backend** `core/kortix-master/src/routes/projects.ts`: `GET /` enumerates all rows; `GET /:id`
+  resolves the real row; `GET /:id/sessions` scopes per-project (only the global view backfills all
+  sessions). `tickets.ts resolveProject()` resolves the real id → scopes board/columns/tickets
+  across 16 call sites.
+- **Frontend** `sidebar-left.tsx`: replaced the single `Projetos → /board` button with a
+  `useKortixProjects`-driven Projetos accordion (each row → `/projects/<id>`) + a `ProjectsFlyout`
+  for the collapsed rail. `app/(dashboard)/projects/[id]/page.tsx`: rebuilt from the redirect stub
+  as a self-contained clone of `/board` with `projectId` from `useParams()` (React-18-safe) instead
+  of the hardcoded `proj-workspace` — `/board` left untouched.
+- **CRITICAL deploy reality:** the backend ships via the **sandbox image** (`core/docker/Dockerfile`
+  → `kortix/computer`, built by deploy-dev, promoted by release.yml → snapshot-build → JustAVPS
+  snapshot → the running sandbox must UPDATE). Heaviest pipeline; a `main` merge alone does NOT
+  deploy it (deploy-hostinger ignores `core/`). The frontend ships via deploy-hostinger as usual —
+  so the list shows only "Kortix" until the sandbox image carries the backend fix. The fork DOES
+  build its own `kortix/computer` (deploy-dev.yml:235), so it's reachable, just slow. Needs
+  `KORTIX_PROJECTS_ENABLED=true` on the sandbox (env-injector, PR #4).
