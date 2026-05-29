@@ -466,11 +466,21 @@ function resolveReachableKortixApiUrl(): string {
 
 
 export function buildCustomerCloudInitScript(dockerImage: string): string {
-  return [
+  const lines: string[] = [];
+  // Private GHCR images need an authenticated pull. Log in BEFORE running
+  // start-sandbox.sh (which does the docker pull) so the fork's sandbox image
+  // can stay private — no public exposure of the code (D-022). Read-only token.
+  if (dockerImage.startsWith('ghcr.io/') && config.GHCR_PULL_TOKEN && config.GHCR_PULL_USER) {
+    lines.push(
+      `printf '%s' ${shellEscape(config.GHCR_PULL_TOKEN)} | docker login ghcr.io -u ${shellEscape(config.GHCR_PULL_USER)} --password-stdin`,
+    );
+  }
+  lines.push(
     'curl -fsSL https://raw.githubusercontent.com/kortix-ai/suna/main/scripts/start-sandbox.sh -o /usr/local/bin/kortix-start-sandbox.sh',
     'chmod +x /usr/local/bin/kortix-start-sandbox.sh',
     `/usr/local/bin/kortix-start-sandbox.sh ${shellEscape(dockerImage)}`,
-  ].join('\n');
+  );
+  return lines.join('\n');
 }
 
 export function buildJustAVPSHostRecoveryCommand(): string {
