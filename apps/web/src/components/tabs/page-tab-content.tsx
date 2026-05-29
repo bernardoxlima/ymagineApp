@@ -108,6 +108,10 @@ const TaskDetailPage = lazy(() =>
 	import('@/app/(dashboard)/tasks/[id]/page'),
 );
 
+const ProjectViewPage = lazy(() =>
+	import('@/app/(dashboard)/projects/[id]/page'),
+);
+
 // ---------------------------------------------------------------------------
 // Route → Component mapping
 // ---------------------------------------------------------------------------
@@ -155,6 +159,11 @@ function resolveComponent(routeKey: string): { Component: ComponentType<any>; pa
 	const taskMatch = routeKey.match(/^\/tasks\/([^/]+)$/);
 	if (taskMatch) {
 		return { Component: TaskDetailPage, params: { id: decodeURIComponent(taskMatch[1]) } };
+	}
+
+	const projectMatch = routeKey.match(/^\/projects\/([^/]+)$/);
+	if (projectMatch) {
+		return { Component: ProjectViewPage, params: { id: decodeURIComponent(projectMatch[1]) } };
 	}
 
 	return null;

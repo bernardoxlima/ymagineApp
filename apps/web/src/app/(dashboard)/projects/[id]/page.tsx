@@ -12,14 +12,17 @@
  * Gated by `featureFlags.enableProjects` — when off, redirects to /workspace.
  */
 
-import { useCallback, useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import * as TabsPrimitive from '@radix-ui/react-tabs';
 import { Loader2, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { featureFlags } from '@/lib/feature-flags';
-import { useKortixProject } from '@/hooks/kortix/use-kortix-projects';
+import { useKortixProject, useKortixProjectSessions } from '@/hooks/kortix/use-kortix-projects';
+import { createFilesStore, FilesStoreProvider } from '@/features/files/store/files-store';
+import { FileExplorerPage } from '@/features/files/components/file-explorer-page';
+import { openTabAndNavigate } from '@/stores/tab-store';
 import {
   useTickets,
   useColumns,
@@ -35,12 +38,14 @@ import { TicketDetailDrawer } from '@/components/kortix/ticket-detail-drawer';
 import { MilestonesTab } from '@/components/kortix/milestones-tab';
 import { TeamTab } from '@/components/kortix/team-tab';
 
-type Tab = 'board' | 'milestones' | 'team';
+type Tab = 'board' | 'milestones' | 'team' | 'files' | 'sessions';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'board', label: 'Board' },
   { id: 'milestones', label: 'Milestones' },
   { id: 'team', label: 'Team' },
+  { id: 'files', label: 'Arquivos' },
+  { id: 'sessions', label: 'Sessões' },
 ];
 
 function WorkspaceRedirect() {
@@ -53,10 +58,12 @@ function WorkspaceRedirect() {
   );
 }
 
-export default function ProjectPage() {
-  const params = useParams<{ id: string }>();
-  const rawId = (params?.id as string) ?? '';
-  const projectId = rawId ? decodeURIComponent(rawId) : '';
+export default function ProjectPage({ params }: { params?: Promise<{ id: string }> }) {
+  // Accept `params` as a prop (Promise) so this page renders BOTH as a real
+  // route AND when mounted by the tab system (PageTabContent passes params).
+  // Mirrors /tasks/[id]/page.tsx. (D-022)
+  const { id: raw } = params ? use(params) : { id: '' };
+  const projectId = raw ? decodeURIComponent(raw) : '';
   // featureFlags.enableProjects is a build-time const → no hooks-order risk.
   if (!featureFlags.enableProjects || !projectId) return <WorkspaceRedirect />;
   return <ProjectInner projectId={projectId} />;
@@ -69,6 +76,17 @@ function ProjectInner({ projectId }: { projectId: string }) {
   const [newTicketDefaultStatus, setNewTicketDefaultStatus] = useState<string | undefined>();
 
   const { data: columns = [] } = useColumns(projectId);
+
+  // Per-project file explorer store (isolated from the global /files tab),
+  // rooted at this project's path. (D-022)
+  const projectFilesStore = useRef(createFilesStore()).current;
+  useEffect(() => {
+    if (project?.path && project.path !== '/') {
+      const { setRootPath, navigateToPath } = projectFilesStore.getState();
+      setRootPath(project.path);
+      navigateToPath(project.path);
+    }
+  }, [project?.path, projectFilesStore]);
 
   const openNewTicket = useCallback((status?: string) => {
     setNewTicketDefaultStatus(status);
@@ -137,6 +155,20 @@ function ProjectInner({ projectId }: { projectId: string }) {
         <TabPanel active={tab === 'team'}>
           <TeamTab projectId={projectId} />
         </TabPanel>
+        <TabPanel active={tab === 'files'}>
+          {project?.path && project.path !== '/' ? (
+            <FilesStoreProvider store={projectFilesStore}>
+              <FileExplorerPage />
+            </FilesStoreProvider>
+          ) : (
+            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+              Sem pasta de arquivos para este projeto
+            </div>
+          )}
+        </TabPanel>
+        <TabPanel active={tab === 'sessions'}>
+          <ProjectSessions projectId={projectId} enabled={tab === 'sessions'} />
+        </TabPanel>
       </div>
 
       <NewTicketDialog
@@ -154,6 +186,45 @@ function TabPanel({ active, children }: { active: boolean; children: React.React
   return (
     <div className={cn('absolute inset-0 flex flex-col overflow-hidden', !active && 'hidden')}>
       {children}
+    </div>
+  );
+}
+
+function ProjectSessions({ projectId, enabled }: { projectId: string; enabled: boolean }) {
+  const { data: sessions = [] } = useKortixProjectSessions(projectId, { enabled });
+  const list = useMemo(
+    () => [...(sessions as any[])]
+      .filter((s) => !s?.parentID)
+      .sort((a, b) => (b?.time?.updated ?? 0) - (a?.time?.updated ?? 0)),
+    [sessions],
+  );
+
+  if (list.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+        Nenhuma sessão neste projeto ainda
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto">
+      <div className="container mx-auto max-w-7xl px-3 sm:px-4 py-3 space-y-0.5">
+        {list.map((s) => (
+          <button
+            key={s.id}
+            onClick={() => openTabAndNavigate({
+              id: s.id,
+              title: s.title || 'Sessão',
+              type: 'session',
+              href: `/sessions/${s.id}`,
+            })}
+            className="flex w-full items-center gap-2 px-3 py-2 rounded-lg text-[13px] text-left text-muted-foreground hover:bg-sidebar-accent hover:text-foreground transition-colors cursor-pointer"
+          >
+            <span className="flex-1 truncate">{s.title || 'Sessão sem título'}</span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
