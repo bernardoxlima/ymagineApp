@@ -1,0 +1,58 @@
+name: Build Sandbox Image (ymagine)
+
+# Builds the sandbox image (core/docker/Dockerfile — kortix/computer, which
+# bakes the fork's core/kortix-master incl. the multi-project fix) and pushes
+# it to GHCR. Uses the built-in GITHUB_TOKEN — NO Docker Hub creds needed.
+#
+# After it publishes, point the API's SANDBOX_IMAGE env at the tag and update
+# the sandbox. The fork can finally run its own sandbox backend. (D-022)
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Image tag (e.g. projects-fix)'
+        required: true
+        default: projects-fix
+
+jobs:
+  build:
+    name: Build & push to GHCR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android "/opt/hostedtoolcache/CodeQL" || true
+          sudo docker image prune -af || true
+          df -h /
+
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Build and push
+        run: |
+          set -euo pipefail
+          TAG="${{ inputs.tag }}"
+          IMG="ghcr.io/${{ github.repository_owner }}/ymagineapp-computer"
+          docker buildx build \
+            --platform linux/amd64 \
+            --file core/docker/Dockerfile \
+            --build-arg "SANDBOX_VERSION=${TAG}" \
+            --tag "${IMG}:${TAG}" \
+            --push \
+            .
+          echo "Pushed ${IMG}:${TAG}"
+          echo "Set the API env: SANDBOX_IMAGE=${IMG}:${TAG}, then update the sandbox."
