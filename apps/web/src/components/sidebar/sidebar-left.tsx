@@ -22,6 +22,7 @@ import {
   ArrowRightLeft,
   CheckCircle2,
   FolderOpen,
+  FolderKanban,
   AlertCircle,
   AlertTriangle,
   Copy,
@@ -77,6 +78,7 @@ import { cn } from '@/lib/utils';
 import { useAdminRole } from '@/hooks/admin';
 import { useDocumentModalStore } from '@/stores/use-document-modal-store';
 import { isBillingEnabled } from '@/lib/config';
+import { featureFlags } from '@/lib/feature-flags';
 
 import { useCreateOpenCodeSession, useOpenCodeSessions } from '@/hooks/opencode/use-opencode-sessions';
 import { openTabAndNavigate } from '@/stores/tab-store';
@@ -1371,6 +1373,21 @@ export function SidebarLeft({ ...props }: React.ComponentProps<typeof Sidebar>) 
               });
             }}
           />
+          {featureFlags.enableProjects && (
+            <CollapsedIconButton
+              icon={<FolderKanban className="h-4 w-4" />}
+              label="Projetos"
+              isActive={pathname === '/board'}
+              onClick={() => {
+                openTabAndNavigate({
+                  id: 'page:/board',
+                  title: 'Projetos',
+                  type: 'page',
+                  href: '/board',
+                });
+              }}
+            />
+          )}
           <CollapsedIconButton
             icon={<ListTree className="h-4 w-4" />}
             label="Sessions"
@@ -1419,9 +1436,30 @@ export function SidebarLeft({ ...props }: React.ComponentProps<typeof Sidebar>) 
               <KbdHint mod={isMac ? '\u2318' : 'Ctrl'} letter="K" />
             </Button>
 
+            {/* Projetos — left-sidebar entry → /board (Board / Milestones /
+                Team). Surfaced on the LEFT per Denis's request (also exists on
+                the right sidebar). Gated by the projects flag (D-022). */}
+            {featureFlags.enableProjects && (
+              <Button
+                onClick={() => {
+                  openTabAndNavigate({
+                    id: 'page:/board',
+                    title: 'Projetos',
+                    type: 'page',
+                    href: '/board',
+                  });
+                  if (isMobile) setOpenMobile(false);
+                }}
+                variant="sidebar"
+                className="group/row rounded-lg"
+              >
+                <FolderKanban className="h-4 w-4 flex-shrink-0 text-sidebar-foreground" />
+                <span className="flex-1 text-left">Projetos</span>
+              </Button>
+            )}
+
             {/* Files lives exclusively on the right sidebar — no redundant
-                entry here. Board is also right-sidebar-only (see
-                menu-registry entry `board`). */}
+                entry here. */}
           </nav>
 
           <SidebarSections />

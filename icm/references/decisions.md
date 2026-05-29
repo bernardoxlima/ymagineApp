@@ -313,3 +313,13 @@ only the working `/board` Project view is brought back. Re-add those later only 
 This is `claude-failure-modes.md` discipline: a runtime-named upstream merge quietly
 removed a user-facing feature; the fix restores it at the right layer (build flag + registry)
 rather than poking the running container. [[D-006]] [[D-021]]
+
+**Addendum (placement + label).** Per Denis: the entry must live in the **LEFT** sidebar
+labelled **"Projetos"** (that's the layout/label he's used to). `sidebar-left.tsx` renders a
+hardcoded nav (it does NOT consume the menu registry), so a `featureFlags.enableProjects`-gated
+"Projetos" button → `/board` was added to BOTH the expanded nav and the collapsed icon rail.
+The right-sidebar registry entry (`project-view-quick`) was also relabelled `Project view` →
+`Projetos` for consistency (right sidebar + Cmd+K + tab title). Do NOT "clean up" the left-sidebar
+entry as a duplicate — its left placement is the explicit requirement. The Board itself works
+with no sandbox change (verified live: empty board renders, no 503), so the sandbox-side note
+above is for future provisioning robustness, not a current blocker.
