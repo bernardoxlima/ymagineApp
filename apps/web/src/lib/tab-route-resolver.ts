@@ -302,6 +302,20 @@ const DYNAMIC_RESOLVERS: DynamicResolver[] = [
     };
   },
 
+  // /projects/<id> — per-project view (Board / Milestones / Team). Restored so
+  // the tab system resolves project URLs again (D-022).
+  (pathname) => {
+    const m = pathname.match(/^\/projects\/([^/]+)$/);
+    if (!m) return null;
+    const projectId = decodeURIComponent(m[1]);
+    return {
+      id: `project:${projectId}`,
+      title: 'Projeto',
+      type: 'page',
+      href: `/projects/${m[1]}`,
+    };
+  },
+
 ];
 
 // ---------------------------------------------------------------------------

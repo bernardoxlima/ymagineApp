@@ -12,8 +12,8 @@
  * Gated by `featureFlags.enableProjects` — when off, redirects to /workspace.
  */
 
-import { useCallback, useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { use, useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import * as TabsPrimitive from '@radix-ui/react-tabs';
 import { Loader2, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -53,10 +53,12 @@ function WorkspaceRedirect() {
   );
 }
 
-export default function ProjectPage() {
-  const params = useParams<{ id: string }>();
-  const rawId = (params?.id as string) ?? '';
-  const projectId = rawId ? decodeURIComponent(rawId) : '';
+export default function ProjectPage({ params }: { params?: Promise<{ id: string }> }) {
+  // Accept `params` as a prop (Promise) so this page renders BOTH as a real
+  // route AND when mounted by the tab system (PageTabContent passes params).
+  // Mirrors /tasks/[id]/page.tsx. (D-022)
+  const { id: raw } = params ? use(params) : { id: '' };
+  const projectId = raw ? decodeURIComponent(raw) : '';
   // featureFlags.enableProjects is a build-time const → no hooks-order risk.
   if (!featureFlags.enableProjects || !projectId) return <WorkspaceRedirect />;
   return <ProjectInner projectId={projectId} />;
