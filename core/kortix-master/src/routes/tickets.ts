@@ -190,6 +190,13 @@ async function maybePingPmOnMilestoneCompletion(
 }
 
 function resolveProject(db: Database, _id: string): ProjectRow | null {
+  // Project paradigm ON: resolve the real row so each project's board/tickets
+  // scope to itself (the-big-1, watson, …). Falls back to the global workspace
+  // when the flag is off or the id is unknown — preserving single-workspace.
+  if (config.PROJECTS_ENABLED && _id) {
+    const row = db.prepare('SELECT * FROM projects WHERE id=$id').get({ $id: _id }) as ProjectRow | null
+    if (row) return row
+  }
   return ensureGlobalProject(db)
 }
 

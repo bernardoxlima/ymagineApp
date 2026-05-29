@@ -81,6 +81,7 @@ import { isBillingEnabled } from '@/lib/config';
 import { featureFlags } from '@/lib/feature-flags';
 
 import { useCreateOpenCodeSession, useOpenCodeSessions } from '@/hooks/opencode/use-opencode-sessions';
+import { useKortixProjects } from '@/hooks/kortix/use-kortix-projects';
 import { openTabAndNavigate } from '@/stores/tab-store';
 import { useServerStore } from '@/stores/server-store';
 import { useOpenCodePendingStore } from '@/stores/opencode-pending-store';
@@ -378,6 +379,47 @@ function SessionsFlyout({ collapsed }: { collapsed?: boolean }) {
 }
 
 // ============================================================================
+// Projects Flyout Content (collapsed rail)
+// ============================================================================
+
+function ProjectsFlyout() {
+  const { data: projects } = useKortixProjects(undefined, { enabled: featureFlags.enableProjects });
+
+  const sorted = React.useMemo(() => {
+    if (!projects || !Array.isArray(projects)) return [];
+    return [...projects].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }, [projects]);
+
+  return (
+    <div className="overflow-y-auto py-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+      {sorted.length === 0 ? (
+        <div className="px-3 py-8 text-center text-xs text-muted-foreground">Nenhum projeto ainda</div>
+      ) : (
+        sorted.map((project) => (
+          <button
+            key={project.id}
+            onClick={() => {
+              openTabAndNavigate({
+                id: `project:${project.id}`,
+                title: project.name,
+                type: 'project',
+                href: `/projects/${encodeURIComponent(project.id)}`,
+              });
+            }}
+            className="flex items-center gap-2.5 w-full px-3 py-1.5 text-[13px] cursor-pointer transition-colors duration-100 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
+          >
+            <span className="flex-1 truncate text-left">{project.name}</span>
+            {(project.sessionCount ?? 0) > 0 && (
+              <span className="text-[10px] text-muted-foreground/40 tabular-nums">{project.sessionCount}</span>
+            )}
+          </button>
+        ))
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
 // User Profile Section
 // ============================================================================
 
@@ -614,6 +656,23 @@ function SidebarSections() {
   const pathname = normalizeAppPathname(usePathname());
   const { isMobile, setOpenMobile } = useSidebar();
 
+  // Projects — Kortix projects (the-big-1, watson, …). Listed only when the
+  // projects paradigm flag is on; each opens /projects/<id>. (D-022)
+  const { data: projectsData } = useKortixProjects(undefined, { enabled: featureFlags.enableProjects });
+  const sortedProjects = React.useMemo(() => {
+    if (!projectsData || !Array.isArray(projectsData)) return [];
+    return [...projectsData].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }, [projectsData]);
+  const handleProjectClick = (project: { id: string; name: string }) => {
+    openTabAndNavigate({
+      id: `project:${project.id}`,
+      title: project.name,
+      type: 'project',
+      href: `/projects/${encodeURIComponent(project.id)}`,
+    });
+    if (isMobile) setOpenMobile(false);
+  };
+
   // Legacy threads
   const migrateAll = useMigrateAllLegacyThreads();
   const [migrateAllStarted, setMigrateAllStarted] = React.useState(false);
@@ -647,6 +706,46 @@ function SidebarSections() {
 
   return (
     <div className="flex flex-col min-h-0 flex-1 pt-0.5 space-y-0.5">
+      {/* Projetos — collapsible list of real projects. Each row opens
+          /projects/<id>. Hidden when the flag is off or there are none. */}
+      {featureFlags.enableProjects && sortedProjects.length > 0 && (
+        <Collapsible defaultOpen className="group/projects flex flex-col min-h-0 flex-shrink-0">
+          <div className="px-3 flex-shrink-0">
+            <CollapsibleTrigger asChild>
+              <Button variant="sidebar" className="rounded-lg">
+                <FolderKanban className="h-4 w-4 flex-shrink-0 text-sidebar-foreground" />
+                <span className="flex-1 text-left">Projetos</span>
+                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 group-data-[state=closed]/projects:-rotate-90" />
+              </Button>
+            </CollapsibleTrigger>
+          </div>
+          <CollapsibleContent className="max-h-[32vh] data-[state=open]:pt-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            <div className="px-4 pb-1 space-y-0.5">
+              {sortedProjects.map((project) => {
+                const active = pathname === `/projects/${project.id}`;
+                return (
+                  <button
+                    key={project.id}
+                    onClick={() => handleProjectClick(project)}
+                    className={cn(
+                      'flex items-center gap-2 w-full px-3 py-1.5 rounded-lg text-[13px] cursor-pointer transition-colors duration-150',
+                      active
+                        ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
+                        : 'text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground',
+                    )}
+                  >
+                    <span className="flex-1 truncate text-left">{project.name}</span>
+                    {(project.sessionCount ?? 0) > 0 && (
+                      <span className="text-[10px] text-muted-foreground/40 tabular-nums">{project.sessionCount}</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+
       {/* Sessions — always visible, takes remaining space */}
       <Collapsible defaultOpen className="group/sessions flex flex-col min-h-0 data-[state=open]:flex-1">
         <div className="px-3 flex-shrink-0">
@@ -1377,15 +1476,7 @@ export function SidebarLeft({ ...props }: React.ComponentProps<typeof Sidebar>) 
             <CollapsedIconButton
               icon={<FolderKanban className="h-4 w-4" />}
               label="Projetos"
-              isActive={pathname === '/board'}
-              onClick={() => {
-                openTabAndNavigate({
-                  id: 'page:/board',
-                  title: 'Projetos',
-                  type: 'page',
-                  href: '/board',
-                });
-              }}
+              flyoutContent={<ProjectsFlyout />}
             />
           )}
           <CollapsedIconButton
@@ -1453,28 +1544,6 @@ export function SidebarLeft({ ...props }: React.ComponentProps<typeof Sidebar>) 
               <FolderOpen className="h-4 w-4 flex-shrink-0 text-sidebar-foreground" />
               <span className="flex-1 text-left">Arquivos</span>
             </Button>
-
-            {/* Projetos — left-sidebar entry → /board (Board / Milestones /
-                Team). Surfaced on the LEFT per Denis's request (also exists on
-                the right sidebar). Gated by the projects flag (D-022). */}
-            {featureFlags.enableProjects && (
-              <Button
-                onClick={() => {
-                  openTabAndNavigate({
-                    id: 'page:/board',
-                    title: 'Projetos',
-                    type: 'page',
-                    href: '/board',
-                  });
-                  if (isMobile) setOpenMobile(false);
-                }}
-                variant="sidebar"
-                className="group/row rounded-lg"
-              >
-                <FolderKanban className="h-4 w-4 flex-shrink-0 text-sidebar-foreground" />
-                <span className="flex-1 text-left">Projetos</span>
-              </Button>
-            )}
 
           </nav>
 
