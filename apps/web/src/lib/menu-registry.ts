@@ -18,11 +18,13 @@
  */
 
 import type { LucideIcon } from 'lucide-react';
+import { featureFlags } from './feature-flags';
 import {
   // Navigation
   LayoutDashboard,
   Blocks,
   FolderOpen,
+  FolderKanban,
   Plug,
   MessageSquare,
   Calendar,
@@ -293,6 +295,23 @@ export const menuRegistry: MenuItemDef[] = [
     kind: 'navigate',
     href: '/files',
     tabId: 'page:/files',
+  },
+  {
+    // Project view — single-sandbox combined surface (Board + Milestones +
+    // Team in inline tabs). Even though we don't expose a multi-project
+    // model, the user-facing label is "Project view" because that's how the
+    // user reasons about it. Hidden until the project paradigm flag is on.
+    id: 'project-view-quick',
+    label: 'Project view',
+    icon: FolderKanban,
+    group: 'quickActions',
+    subGroup: 'tools',
+    showIn: ['rightSidebar', 'commandPalette'],
+    kind: 'navigate',
+    href: '/board',
+    tabId: 'page:/board',
+    keywords: 'project view board kanban milestones team tickets',
+    requiresProjectsFlag: true,
   },
   {
     id: 'new-terminal',
@@ -782,7 +801,11 @@ export function getItemsByGroup(
   return menuRegistry.filter(
     (item) =>
       item.showIn.includes(surface) &&
-      item.group === group,
+      item.group === group &&
+      // Hide project-paradigm entries (Board today, Milestones / Team later)
+      // until the flag is flipped on. The flag is a build-time const so the
+      // unused entries tree-shake out.
+      (!item.requiresProjectsFlag || featureFlags.enableProjects),
   );
 }
 
