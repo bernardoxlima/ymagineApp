@@ -323,3 +323,15 @@ The right-sidebar registry entry (`project-view-quick`) was also relabelled `Pro
 entry as a duplicate — its left placement is the explicit requirement. The Board itself works
 with no sandbox change (verified live: empty board renders, no 503), so the sandbox-side note
 above is for future provisioning robustness, not a current blocker.
+
+**Addendum 2 (left sidebar matched to `DenisCDev/suna`, Option A).** Per Denis, the LEFT
+sidebar should mirror suna's (the sister repo) minus his manual `Agentes`/`Autores` entries.
+suna is **multi-project + PT-BR**; ymagine is **single-workspace + EN**. We chose the adapted
+match (NOT a 1:1 port): suna's `/projects/[id]` multi-project accordion was NOT ported because
+that route is a gutted stub here and porting it would mean reverting the upstream single-workspace
+refactor. Net result in `sidebar-left.tsx`: nav is `Nova sessão · Buscar · Arquivos · Projetos`
+(Projetos → `/board`), sections are `Sessões · Conversas anteriores`. **Left-sidebar labels are
+intentionally PT-BR** to match suna even though the rest of the app is still EN (D-005 — full
+locale flip is a separate, Bernardo-gated decision). Do NOT "fix" these back to English as an
+inconsistency; the mixed state is deliberate until the locale flip happens. `Arquivos`/`Files`
+appears in BOTH sidebars by design.
