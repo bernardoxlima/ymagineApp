@@ -11,7 +11,8 @@
 | `deploy-hostinger.yml` | Push to `main` (paths) + `workflow_dispatch` | api + frontend images → GHCR | ✅ Hostinger VPS | Every merge to main |
 | `deploy-dev.yml` | Push to `main` (paths, gated by `vars.AUTO_DEPLOY_DEV`) + dispatch | Multi-arch (amd64 + arm64), path-filtered | ✅ dev VPS | Continuous dev (when enabled) |
 | `release.yml` | Tag / release | Production release images | ✅ prod (release flow) | Cutting a versioned release |
-| `snapshot-build.yml` | `workflow_dispatch` + `workflow_call` (from deploy-dev / release) | `kortix/computer` sandbox image | ✅ JustAVPS snapshot | Sandbox image rebuild |
+| `snapshot-build.yml` | `workflow_dispatch` + `workflow_call` (from deploy-dev / release) | `kortix/computer` sandbox image | ✅ JustAVPS snapshot | Sandbox image rebuild (cloud / JustAVPS path) |
+| `build-sandbox-image.yml` | `workflow_dispatch` only | sandbox image from `core/docker/Dockerfile` → **GHCR** `ghcr.io/<owner>/ymagineapp-computer:<tag>`, built-in `GITHUB_TOKEN` (no Docker Hub) | pushes to GHCR (no VPS) | Manual: ship a `core/` change to the self-hosted sandbox. See **Stage 08** + [[decisions]] D-022 |
 | `trigger-staging-qa.yml` | (varies) | — | — | Staging QA trigger |
 | `dependabot.yml` | scheduled | — | — | Dep PR automation |
 
@@ -22,7 +23,7 @@
 | `apps/api/**` | `ci-build` (api leg), `deploy-hostinger` (api leg), `deploy-dev` (api leg) |
 | `apps/web/**` | `ci-build` (web leg), `deploy-hostinger` (web leg), `deploy-dev` (frontend leg) |
 | `packages/**` | All of the above (shared code — rebuilds both sides) |
-| `core/**` | `deploy-dev` (computer leg). NOT `deploy-hostinger` (sandbox image is separate) |
+| `core/**` | `deploy-dev` (computer leg, if `AUTO_DEPLOY_DEV`). **NOT `deploy-hostinger`** (sandbox image is separate). To ship a `core/` change to the *running* self-hosted sandbox: `build-sandbox-image.yml` → GHCR → set `SANDBOX_IMAGE` + recreate (**Stage 08**) |
 | `supabase/migrations/**` | `deploy-hostinger` (migrations run at api boot via `ensureSchema`) |
 | `pnpm-lock.yaml`, `pnpm-workspace.yaml` | All build legs (lockfile changes shared deps) |
 | `.github/workflows/**` | The workflow that was changed |
