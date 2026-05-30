@@ -358,3 +358,24 @@ workspace, and (b) the web UI deleted every project-listing surface. Restore (br
   so the list shows only "Kortix" until the sandbox image carries the backend fix. The fork DOES
   build its own `kortix/computer` (deploy-dev.yml:235), so it's reachable, just slow. Needs
   `KORTIX_PROJECTS_ENABLED=true` on the sandbox (env-injector, PR #4).
+
+**Addendum 5 (what was ACTUALLY shipped — the durable fix is LIVE).** The prod sandbox is NOT
+JustAVPS — it is a LOCAL docker container `kortix-hosted-sandbox` on the Hostinger VPS
+(`srv1691718.hstgr.cloud`), provider `local_docker`, `/workspace` on the named volume
+`kortix-sandbox-data` (survives recreate), api compose at `/root/.kortix` (`.env`).
+Deployment performed (PRs #4-#11 + manual ops):
+- Built the fork's sandbox image to **GHCR** via `.github/workflows/build-sandbox-image.yml`
+  (GITHUB_TOKEN, no Docker Hub): `ghcr.io/bernardoxlima/ymagineapp-computer:projects-fix`.
+- On the VPS: `docker login ghcr.io` (read-only PAT), pulled the image, set
+  `SANDBOX_IMAGE=ghcr.io/bernardoxlima/ymagineapp-computer:projects-fix` in `/root/.kortix/.env`,
+  recreated `kortix-hosted-sandbox` on the new image reusing the volume (data preserved). Verified
+  `GET /kortix/projects` now enumerates the-big-1/watson/etc.
+- **Private pull (PR #9)** so the image can stay private: `GHCR_PULL_USER`/`GHCR_PULL_TOKEN`
+  (read:packages) env on the api → `docker login` in justavps cloud-init + update/executor, and
+  dockerode `authconfig` in `local-docker.pullImageByName` (the provider this deploy uses). Set
+  those two env vars in `/root/.kortix/.env` so the api can re-pull the private image on a fresh
+  host; today the image is already local so it runs without them.
+- Frontend: sidebar lists projects (#7); `/projects/[id]` opens in the tab system (#10 — added
+  `/projects/<id>` to `tab-route-resolver` + `page-tab-content` resolveComponent, read params via
+  `use()` like `/tasks/[id]`); project view has Board/Milestones/Team/Arquivos/Sessões (#11).
+- The `/board` global route is left intact; per-project pages are `/projects/<id>`.
