@@ -44,7 +44,20 @@ Build: `pnpm -r run build` (root). `apps/web`: `pnpm --filter Kortix-Computer-Fr
 ## Sandbox / `core/`
 
 - Builds the `kortix/computer` Ubuntu+KDE container that runs per session.
-- Snapshotted into JustAVPS via `snapshot-build.yml`.
+- **Two provisioning paths, chosen by `ALLOWED_SANDBOX_PROVIDERS` in the api env:**
+  - **`local_docker` — what the Hostinger self-hosted deploy actually uses.** The sandbox is
+    a LOCAL docker container `kortix-hosted-sandbox` ON the VPS, managed by the api via the
+    docker socket (`apps/api/src/platform/providers/local-docker.ts`). `docker ps` on the VPS
+    shows it beside api/frontend/supabase. `/workspace` = named volume `kortix-sandbox-data`
+    (survives container recreate); `/persistent` = durable kortix state; `/ephemeral/kortix-master/`
+    = the in-sandbox Hono server (`/kortix/*` API), **replaced on image update** (user data in
+    `/workspace` persists). Image tag = `config.SANDBOX_IMAGE`, set in `/root/.kortix/.env`.
+  - **`justavps`** — the cloud path: image snapshotted into JustAVPS via `snapshot-build.yml`.
+- **The sandbox image does NOT ship via `deploy-hostinger`** (that's api+frontend → GHCR only).
+  The fork can build its OWN image to **GHCR with the built-in `GITHUB_TOKEN`** (no Docker Hub)
+  via `.github/workflows/build-sandbox-image.yml` → `ghcr.io/bernardoxlima/ymagineapp-computer:<tag>`,
+  point `SANDBOX_IMAGE` at it, and for a PRIVATE image set `GHCR_PULL_USER`/`GHCR_PULL_TOKEN`
+  (read:packages) in the api env. See [[decisions]] D-022 + [[claude-failure-modes]] §11.
 - `core/docker/docker-compose.yml` + `docker-compose.dev.yml` for local sandbox dev.
 
 ## Deploy topology (Hostinger VPS via `deploy-hostinger.yml`)

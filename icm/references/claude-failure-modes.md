@@ -183,6 +183,29 @@ When adding a route or tab, search for the routing map (often a single `Record<s
 in a registry file like `menu-registry.ts` or `PAGE_COMPONENTS`) and update it in the
 **same commit** as the route addition.
 
+### §6.1 — A new DYNAMIC `(dashboard)` route needs THREE registrations, not one (D-022)
+
+Shipped this in the multi-project restore. The `(dashboard)` group is a TAB SYSTEM: the
+catch-all + `layout-content.tsx` decide what to render via `resolveTabFromPathname()`, and
+tab content is rendered by `PageTabContent` → `resolveComponent(href)` (a map of href → lazy
+component). A bare Next `page.tsx` is NOT enough — adding `app/(dashboard)/projects/[id]/page.tsx`
+alone gave a literal **"Page not found"** (from `PageTabContent` when `resolveComponent`
+returns null) even though the route built fine and the page existed.
+
+A new dynamic `(dashboard)` route needs all THREE, in the same commit:
+1. `app/(dashboard)/<route>/[id]/page.tsx` — the page. Read params as a **PROP via `use()`**
+   (`function Page({ params }: { params?: Promise<{id}> }) { const {id}=use(params)... }`),
+   NOT `useParams()` — `PageTabContent` renders it as `<Component params={promise}/>`, not as
+   the matched route, so `useParams()` is empty. Mirror `app/(dashboard)/tasks/[id]/page.tsx`.
+2. `lib/tab-route-resolver.ts` — a dynamic resolver matching `/^\/<route>\/([^/]+)$/`
+   returning a `TabDescriptor` (`type: 'page'`).
+3. `components/tabs/page-tab-content.tsx` — a lazy import + a `resolveComponent` case
+   returning `{ Component, params: { id } }`.
+
+Static routes only need the `PAGE_COMPONENTS` + `STATIC_TAB_ROUTES` entries. Symptom of a
+miss: the page works as a file but the app shows "Page not found" on direct load **and** on
+sidebar click.
+
 ---
 
 ## §7 — Happy-path features that forget existing data
@@ -243,13 +266,48 @@ If you need a secret value to debug:
 
 ---
 
+## §11 — Assuming infra topology instead of checking it (D-022)
+
+Burned hours this session assuming the prod sandbox ran on JustAVPS (the cloud path). It
+does NOT: the Hostinger self-hosted deploy runs the sandbox as a **LOCAL docker container**
+(`kortix-hosted-sandbox`, provider `local_docker`) ON the VPS — `docker ps` shows it next to
+api/frontend/supabase. Before reasoning about sandbox/deploy, CHECK:
+- `apps/api/src/config.ts` → `ALLOWED_SANDBOX_PROVIDERS` (this deploy = `local_docker`) and `SANDBOX_IMAGE`.
+- `docker ps` on the VPS — is the sandbox a local container or remote?
+
+Three deploy truths learned here (corrects/extends `architecture.md`):
+- **`NEXT_PUBLIC_*` is BUILD-TIME** — baked into the JS bundle by `next build`. You cannot
+  flip it via `docker exec`/runtime env; it needs a frontend rebuild (the flag lives in
+  `deploy-hostinger.yml`'s build step). Don't try to "fix" a `NEXT_PUBLIC_*` flag on the host.
+- **`core/` does NOT deploy via `deploy-hostinger`** (its paths are apps/api, apps/web,
+  packages, supabase, the workflow). The sandbox image is a separate pipeline. The fork CAN
+  build its OWN sandbox image to **GHCR with the built-in `GITHUB_TOKEN`** — no Docker Hub
+  creds — via `.github/workflows/build-sandbox-image.yml`, then point the api's `SANDBOX_IMAGE`
+  at `ghcr.io/<owner>/ymagineapp-computer:<tag>`. (deploy-dev builds `kortix/computer` too but
+  its Docker Hub creds were missing + its frontend build OOMs — abandoned path.)
+- The sandbox `/workspace` is a **named volume** (`kortix-sandbox-data`) → recreating the
+  container on a new image PRESERVES user data. `docker rm` (without `-v`) keeps it.
+
+### §11.1 — Secrets in shell commands + logs (security review caught this)
+
+When building a `docker login`/exec command with a token: **shell-escape** the value (use
+`shellEscape()` from justavps.ts; for dockerode pull pass `authconfig`, not a command string)
+AND **never log the raw error** (`console.warn(..., err)`) — it can carry the token-bearing
+command. Use `--password-stdin`; log a sanitized message only. Gotcha: `/root/.docker/config.json`'s
+`ghcr.io` auth may be a STALE CI `GITHUB_TOKEN` from a deploy's `docker login` (~400 chars),
+NOT the operator's PAT — don't extract it expecting a ~40-char PAT.
+
+---
+
 ## Quick pre-commit checklist (use before every PR)
 
 - [ ] Did you change any shell script / Dockerfile / host-exec string? → re-read §1.
 - [ ] Did you add an export to `packages/db` or `packages/shared`? → barrel updated? (§2)
 - [ ] Did you add a tool / file to a sandbox runtime? → which boundary? (§3)
 - [ ] Did you add a route / tab / nav entry? → routing map updated? (§6)
+- [ ] Did you add a DYNAMIC `(dashboard)` route? → page.tsx + tab-route-resolver + page-tab-content, params read as a prop via `use()`? (§6.1)
 - [ ] Did you ship a feature for new objects? → migration plan for existing data? (§7)
 - [ ] Did you change an enum / Zod schema? → grep for every place the old value lives? (§5)
 - [ ] Is the CI gate appropriate for what you actually want to catch? (§8)
-- [ ] Are any secret values in your diff? (§10)
+- [ ] Are any secret values in your diff, in a shell command, or in a log line? (§10, §11.1)
+- [ ] Reasoning about sandbox/deploy? → checked `ALLOWED_SANDBOX_PROVIDERS` + `docker ps` on the VPS; remember `NEXT_PUBLIC_*` is build-time and `core/` ships via the sandbox image, not `deploy-hostinger` (§11)
