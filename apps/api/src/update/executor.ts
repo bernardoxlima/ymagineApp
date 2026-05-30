@@ -23,6 +23,7 @@ import {
   stopAndStartContainer,
   verifyContainer,
 } from './steps';
+import { execOnHost } from './exec';
 
 const RUNTIME_VERIFY_TOTAL_MS = 180_000;
 const RUNTIME_VERIFY_INTERVAL_MS = 3_000;
@@ -245,6 +246,15 @@ export async function executeUpdate(sandboxId: string, targetVersion: string): P
 
     // ── Pull ──
     await setPhase(sandboxId, 'pulling', 15, `Pulling ${targetImage}...`);
+    // Private GHCR images: authenticate on the sandbox host before pulling so
+    // the image can stay private (D-022). Best-effort; public images skip it.
+    if (targetImage.startsWith('ghcr.io/') && config.GHCR_PULL_TOKEN && config.GHCR_PULL_USER) {
+      try {
+        await execOnHost(endpoint, `printf '%s' '${config.GHCR_PULL_TOKEN}' | docker login ghcr.io -u '${config.GHCR_PULL_USER}' --password-stdin`, 30);
+      } catch (e) {
+        console.warn('[UPDATE] GHCR login failed (continuing to pull):', e);
+      }
+    }
     const pullResult = await pullImage(endpoint, targetImage);
     if (!pullResult.success) {
       const elapsed = Math.round((pullResult.durationMs || 0) / 1000);

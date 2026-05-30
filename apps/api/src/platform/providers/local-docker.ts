@@ -901,8 +901,17 @@ export class LocalDockerProvider implements SandboxProvider {
   private async pullImageByName(imageName: string): Promise<void> {
     _pullStatus = { state: 'pulling', progress: 0, message: `Pulling ${imageName}...` };
 
+    // Private GHCR images need pull auth (D-022): pass dockerode authconfig when
+    // pulling a ghcr.io/... image and read-only creds are configured. Lets the
+    // sandbox image stay private — no public exposure of the fork's code.
+    const pullOpts: Record<string, unknown> = (
+      imageName.startsWith('ghcr.io/') && config.GHCR_PULL_TOKEN && config.GHCR_PULL_USER
+    )
+      ? { authconfig: { username: config.GHCR_PULL_USER, password: config.GHCR_PULL_TOKEN, serveraddress: 'ghcr.io' } }
+      : {};
+
     await new Promise<void>((resolve, reject) => {
-      this.docker.pull(imageName, (err: Error | null, stream: NodeJS.ReadableStream) => {
+      this.docker.pull(imageName, pullOpts, (err: Error | null, stream: NodeJS.ReadableStream) => {
         if (err) {
           _pullStatus = { state: 'error', progress: 0, message: err.message, error: err.message };
           return reject(err);
