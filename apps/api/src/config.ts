@@ -445,6 +445,10 @@ export const config = {
   KORTIX_URL: env.KORTIX_URL,
   ALLOWED_SANDBOX_PROVIDERS: allowedProviders,
   SANDBOX_IMAGE: env.SANDBOX_IMAGE || 'kortix/computer:latest',
+  // Optional GHCR creds so the sandbox host can pull a PRIVATE ghcr.io/...
+  // SANDBOX_IMAGE without making the image public (D-022). Read-only token.
+  GHCR_PULL_USER: process.env.GHCR_PULL_USER,
+  GHCR_PULL_TOKEN: process.env.GHCR_PULL_TOKEN,
   KORTIX_LOCAL_IMAGES: env.KORTIX_LOCAL_IMAGES,
   DOCKER_HOST: env.DOCKER_HOST,
   SANDBOX_NETWORK: env.SANDBOX_NETWORK,
