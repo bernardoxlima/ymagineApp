@@ -70,7 +70,7 @@ Non-secret maps you CAN rely on here in the repo:
 **Engineering theory (cross-cutting; load for any deploy/CI/observability change)**
 - Quality gates + deploy safety (Humble/Farley/SRE/Forsgren/Majors/Gregg, NIST SSDF) → `icm/references/quality-gates-and-deploy-safety.md`
 
-## The 7 workflows (Layer 2 stages)
+## The 8 workflows (Layer 2 stages)
 
 | Stage | When to use |
 |---|---|
@@ -81,6 +81,7 @@ Non-secret maps you CAN rely on here in the repo:
 | `icm/stages/05_ci_repair/` | When CI breaks: diagnose the workflow, not the code |
 | `icm/stages/06_shell_or_docker/` | When editing shell scripts, Dockerfiles, host-exec commands — the highest-risk surface |
 | `icm/stages/07_ai_agent_work/` | When editing system prompts, persona prompts, or model routing for Kortix agents |
+| `icm/stages/08_sandbox_image/` | When changing `core/` (the sandbox runtime) and shipping it to the running sandbox — the separate GHCR-image pipeline (core/ does NOT deploy via deploy-hostinger). D-022 |
 
 ## Non-negotiables (this is production — Suna's commits proved it)
 
