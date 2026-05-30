@@ -249,10 +249,13 @@ export async function executeUpdate(sandboxId: string, targetVersion: string): P
     // Private GHCR images: authenticate on the sandbox host before pulling so
     // the image can stay private (D-022). Best-effort; public images skip it.
     if (targetImage.startsWith('ghcr.io/') && config.GHCR_PULL_TOKEN && config.GHCR_PULL_USER) {
+      // Shell-escape creds (defense-in-depth); --password-stdin keeps the token
+      // out of `docker login` args; never log the token-bearing command/error.
+      const shq = (v: string) => "'" + String(v).replace(/'/g, "'\\''") + "'";
       try {
-        await execOnHost(endpoint, `printf '%s' '${config.GHCR_PULL_TOKEN}' | docker login ghcr.io -u '${config.GHCR_PULL_USER}' --password-stdin`, 30);
-      } catch (e) {
-        console.warn('[UPDATE] GHCR login failed (continuing to pull):', e);
+        await execOnHost(endpoint, `printf '%s' ${shq(config.GHCR_PULL_TOKEN)} | docker login ghcr.io -u ${shq(config.GHCR_PULL_USER)} --password-stdin`, 30);
+      } catch {
+        console.warn('[UPDATE] GHCR login failed (continuing to pull)');
       }
     }
     const pullResult = await pullImage(endpoint, targetImage);
