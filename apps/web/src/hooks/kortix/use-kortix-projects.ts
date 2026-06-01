@@ -7,6 +7,7 @@
  * dashboard/OpenCode APIs.
  */
 
+import { useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useServerStore } from '@/stores/server-store';
 import { authenticatedFetch } from '@/lib/auth-token';
@@ -89,6 +90,31 @@ export function useKortixProject(id: string) {
     // when another tab closes) is loading. Prevents the skeleton flash.
     placeholderData: keepPreviousData,
   });
+}
+
+/**
+ * Prefetch a project's detail query on sidebar hover/focus so the click paints
+ * from a warm, FRESH cache instead of a cold ~141ms round-trip (BR↔Boston).
+ * Uses the EXACT same queryKey + queryFn + staleTime as useKortixProject so it
+ * dedupes — a mismatched key would double-fetch (cf. the tab-bar prefetch bug).
+ * Reads the server store at call time (hover is an event, not render). The
+ * staleTime only guards against re-fetching on rapid re-hover; ongoing
+ * freshness is governed by the mounted query, so this never serves stale data.
+ */
+export function usePrefetchKortixProject() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  return useCallback((id: string) => {
+    if (!id) return;
+    const store = useServerStore.getState();
+    const serverUrl = store.getActiveServerUrl();
+    if (!serverUrl) return;
+    qc.prefetchQuery({
+      queryKey: [...kortixKeys.project(id), user?.id ?? 'anonymous', serverUrl, store.serverVersion],
+      queryFn: () => kortixFetch<KortixProject>(serverUrl, `/${encodeURIComponent(id)}`),
+      staleTime: 15_000,
+    });
+  }, [qc, user?.id]);
 }
 
 export function useKortixProjectForSession(sessionId: string, options: KortixProjectQueryOptions = {}) {
