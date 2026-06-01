@@ -39,7 +39,7 @@ Full detail → `icm/references/architecture.md`.
 ## How to find things
 
 - **Routing / what-to-do** → `CONTEXT.md` (L1) → the matching `icm/stages/NN_*/CONTEXT.md` (L2). The 8 stages live in L1; the stage file has the Inputs table + Verify checklist — use them, don't shortcut from here.
-- **Maps (non-secret)** → `icm/references/`: `architecture` · `conventions` · `decisions` · `claude-failure-modes` · `ci-cd-map` · `stack/{frontend,backend}` · `models/*` · `quality-gates-and-deploy-safety`. Load per the stage's Inputs table — don't eager-load all of them.
+- **Maps (non-secret)** → `icm/references/`: `architecture` · `conventions` · `decisions` · `claude-failure-modes` · `ci-cd-map` · `stack/{frontend,backend,agents}` · `models/*` · `quality-gates-and-deploy-safety`. Load per the stage's Inputs table — don't eager-load all of them.
 - **Operator-only (gitignored, not in repo)** → `icm/references/deploy-runbook.md` (VPS host, SSH, rollback) + `security-state.md`. Missing? You're on a clone without operator context — ask Denis before touching deploy.
 
 ## Non-negotiables (this is production — Suna's commits proved it)

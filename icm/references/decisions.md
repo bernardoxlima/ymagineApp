@@ -411,3 +411,28 @@ exposed it (sub-projects went empty). See [[claude-failure-modes]] §12.
 
 **Ships via the sandbox image (Stage 08), tag `session-autolink`.** The frontend half
 (dashboard About + per-session totals + loading fix) ships via `deploy-hostinger`. [[D-022]]
+
+## D-024 · Board team agents = seeded `project_agents` rows; model routed by role (D-022/D-023 follow-up)
+
+**Context.** The Board's autonomous kanban needs a @project-manager + worker agents as
+`project_agents` DB rows. Found: `project_agents` empty for ALL projects → Team tab empty
+everywhere. Cause: `seedV2Project` (creates the PM row + columns + the agent file) runs ONLY via
+`POST /:id/seed-v2`; the boot v1→v2 migration only does `UPDATE structure_version=2` → projects
+flip to v2 **unseeded** ("zombie v2": v2 flag, 0 columns, 0 agents). Separately, an LLM session had
+scaffolded a 13-agent consulting "team" as `.opencode/agent/*.md` files under `the-big-1/` —
+orphaned (not in `project_agents`, not loaded at cwd `/workspace`, model `kortix-yolo/*` removed per
+D-020). See [[claude-failure-modes]] §15 + `stack/agents.md`.
+
+**Decision.**
+1. **Create path:** Board team agents come from `project_agents` (Team tab → New agent, or the
+   `seed-v2` endpoint). Hand-written `.opencode/agent` files are *session* agents, not board agents.
+2. **Existing projects:** seed them (`POST /:id/seed-v2`) → @project-manager + default columns; the
+   PM then shapes the smallest worker team (@engineer/@qa/@tech-lead) per ticket scope.
+3. **Migration fix (core/, Stage 08):** the v1→v2 boot migration must run `seedV2Project` (or
+   lazy-seed on first board access), NOT a bare flag flip — so migrated projects are never "zombie v2".
+4. **Model by role:** orchestrator (@project-manager) = strong reasoner (`anthropic/claude-sonnet-4-6`,
+   live here); workers = coding routers (`openrouter/xiaomi/mimo-v2.5-pro` / `kimi-k2.6`, per
+   `models/coding-routers.md`). Never seed an unconfigured `provider/model`.
+
+Best-practice sourcing: Anthropic engineering principles (`gandalf-skill/docs/anthropic-principles.md`)
+applied in `stack/agents.md`. [[D-020]] [[D-022]] [[D-023]]
