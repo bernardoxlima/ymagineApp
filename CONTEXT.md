@@ -14,6 +14,7 @@
 | CI workflow is failing | `icm/stages/05_ci_repair/CONTEXT.md` | Diagnose the workflow, not the app |
 | Editing shell scripts / Dockerfile / host-exec | `icm/stages/06_shell_or_docker/CONTEXT.md` | Highest-risk surface — Suna had 4 prod incidents here |
 | Editing agent system prompts / persona / model routing | `icm/stages/07_ai_agent_work/CONTEXT.md` | Different verify discipline — prompts aren't CI-testable |
+| Ship a `core/` change to the running sandbox | `icm/stages/08_sandbox_image/CONTEXT.md` | Separate image pipeline — `core/` does NOT deploy via deploy-hostinger (D-022) |
 | Just understand the system | `icm/references/architecture.md` | No stage needed |
 | Deploy / rollback / VPS ops | `icm/references/deploy-runbook.md` | ⚠ gitignored, operator-only |
 
