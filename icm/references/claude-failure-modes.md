@@ -349,6 +349,12 @@ Run `docker image prune -a -f` FIRST — it keeps images used by RUNNING contain
 `SANDBOX_IMAGE` + the 6 compose services stay), reclaimed ~52GB here. Keep ≥1 prior tag for
 rollback; api/frontend rollback re-pulls from GHCR anyway.
 
+**Routine GC is now automated (2026-06-01):** a daily VPS cron (`/root/docker-prune.sh`, 04:00 UTC)
+runs `docker image prune -af --filter until=168h` — keeps in-use + <7d images, removes older unused
+tags. So the disk no longer creeps to 100% on its own; the manual `prune -a -f` above is only the
+fallback if a fresh ~20GB pull still hits disk before the cron has aged out the old tags. Details +
+policy in the gitignored `deploy-runbook.md` (Disk hygiene §).
+
 ### §13.2 — GHCR daemon login expires → `pull ... denied`
 
 `docker pull` of the private `ymagineapp-computer` returns `error from registry: denied` even
