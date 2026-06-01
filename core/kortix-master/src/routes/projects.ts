@@ -311,8 +311,62 @@ projectsRouter.get('/:id', async (c) => {
   return c.json({ ...global, global: true })
 })
 
+// Per-session usage rollup. OpenCode carries cost/tokens on each assistant
+// message's `info` (same fields the web context-modal reads), so we sum across
+// the session's messages. RAW provider cost is returned — the frontend applies
+// COST_MARKUP (1.2×) for display, matching the rest of the UI.
+interface SessionUsage {
+  cost: number
+  tokens: { input: number; output: number; reasoning: number; cacheRead: number; cacheWrite: number }
+  messageCount: number
+}
+
+async function computeSessionUsage(sessionId: string): Promise<SessionUsage | null> {
+  try {
+    const res = await fetch(
+      `http://${config.OPENCODE_HOST}:${config.OPENCODE_PORT}/session/${encodeURIComponent(sessionId)}/message`,
+      { signal: AbortSignal.timeout(10_000) },
+    )
+    if (!res.ok) return null
+    const body = await res.json() as any
+    const items = Array.isArray(body) ? body : (body?.data ?? [])
+    let cost = 0, input = 0, output = 0, reasoning = 0, cacheRead = 0, cacheWrite = 0
+    for (const it of items) {
+      const info = it?.info ?? it
+      if (info?.role !== 'assistant') continue
+      cost += info.cost || 0
+      const t = info.tokens || {}
+      input += t.input || 0
+      output += t.output || 0
+      reasoning += t.reasoning || 0
+      cacheRead += t.cache?.read || 0
+      cacheWrite += t.cache?.write || 0
+    }
+    return { cost, tokens: { input, output, reasoning, cacheRead, cacheWrite }, messageCount: items.length }
+  } catch {
+    return null
+  }
+}
+
+// Bounded-concurrency map so a project with many sessions doesn't fan out
+// dozens of simultaneous OpenCode fetches.
+async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length)
+  let next = 0
+  async function worker() {
+    while (next < items.length) {
+      const idx = next++
+      out[idx] = await fn(items[idx])
+    }
+  }
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, worker))
+  return out
+}
+
 // GET /:id/sessions — sessions linked to this project via session_projects table
-// Enriches with OpenCode session data (title, time, etc.) from the OC API
+// Enriches with OpenCode session data (title, time, etc.) from the OC API.
+// Pass ?usage=1 to also roll up per-session cost/tokens/messageCount (the
+// project Sessions tab does this; the global board does not, so it pays nothing).
 projectsRouter.get('/:id/sessions', async (c) => {
   const db = getDb()
   const globalProject = ensureGlobalProject(db)
@@ -371,6 +425,13 @@ projectsRouter.get('/:id/sessions', async (c) => {
         ...s,
         task: tasksBySession.get(s.id) || null,
       }))
+
+      // ?usage=1 → roll up cost/tokens/messageCount per session.
+      if (c.req.query('usage') === '1') {
+        const usages = await mapWithConcurrency(enriched, 4, (s: any) => computeSessionUsage(s.id))
+        return c.json(enriched.map((s: any, idx: number) => ({ ...s, usage: usages[idx] })))
+      }
+
       return c.json(enriched)
     }
   } catch {}
