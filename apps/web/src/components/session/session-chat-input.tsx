@@ -325,6 +325,31 @@ export function AgentSelector({
 // Variant / Thinking Mode Selector
 // ============================================================================
 
+// Pretty labels for the known reasoning-effort variant keys (OpenCode/OpenRouter
+// expose `none|minimal|low|medium|high|xhigh`; Anthropic-direct adds `max`).
+// Falls back to a capitalized key for any other variant a model declares.
+const EFFORT_LABELS: Record<string, string> = {
+  none: 'None',
+  minimal: 'Minimal',
+  low: 'Low',
+  medium: 'Medium',
+  high: 'High',
+  xhigh: 'Extra high',
+  max: 'Max',
+};
+function effortLabel(v: string): string {
+  return EFFORT_LABELS[v.toLowerCase()] ?? v.charAt(0).toUpperCase() + v.slice(1);
+}
+
+/**
+ * Thinking-effort selector. The available efforts are the SELECTED model's
+ * `variants` (each maps to `reasoning.effort` server-side in OpenCode), so the
+ * options adapt per model — low/medium/high, plus xhigh/max where the model
+ * supports it. Replaces the old blind "cycle" button with a popover that shows
+ * every available effort + a "Default" (= the model's own default, no override)
+ * and marks the current selection. Only rendered when the model declares
+ * variants (see the call site), so models without reasoning show nothing.
+ */
 function VariantSelector({
   variants,
   selectedVariant,
@@ -334,34 +359,71 @@ function VariantSelector({
   selectedVariant: string | null;
   onSelect: (variant: string | null) => void;
 }) {
-  const currentIndex = selectedVariant ? variants.indexOf(selectedVariant) : -1;
-
-  function cycle() {
-    if (variants.length === 0) return;
-    const nextIndex = (currentIndex + 1) % (variants.length + 1);
-    onSelect(nextIndex === variants.length ? null : variants[nextIndex]);
-  }
-
-  const displayName = selectedVariant || 'Default';
+  const [open, setOpen] = useState(false);
+  const displayName = selectedVariant ? effortLabel(selectedVariant) : 'Default';
+  // "Default" (null = no override, model decides) first, then each available
+  // effort in the order the model declares them.
+  const options: Array<{ key: string | null; label: string }> = [
+    { key: null, label: 'Default' },
+    ...variants.map((v) => ({ key: v, label: effortLabel(v) })),
+  ];
 
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          onClick={cycle}
-          className={cn(
-            "inline-flex items-center gap-1 h-8 px-2.5 rounded-xl text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer capitalize",
-            selectedVariant && "text-foreground",
-          )}
-        >
-          {displayName}
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="top">
-        <p className="text-xs">Cycle thinking effort</p>
-      </TooltipContent>
-    </Tooltip>
+    <CommandPopover open={open} onOpenChange={setOpen}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <CommandPopoverTrigger>
+            <button
+              type="button"
+              className={cn(
+                'inline-flex items-center gap-1 h-8 px-2.5 rounded-xl text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-200 cursor-pointer',
+                (selectedVariant || open) && 'text-foreground',
+                open && 'bg-muted',
+              )}
+            >
+              <span>{displayName}</span>
+              <ChevronDown className={cn('size-3 opacity-50 transition-transform duration-200', open && 'rotate-180')} />
+            </button>
+          </CommandPopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">Thinking effort</TooltipContent>
+      </Tooltip>
+
+      <CommandPopoverContent side="top" align="start" sideOffset={8} className="w-[200px]">
+        <CommandList>
+          <CommandGroup
+            heading={<span className="normal-case tracking-normal">Thinking effort</span>}
+            forceMount
+          >
+            {options.map((opt) => {
+              const isSelected = (selectedVariant ?? null) === opt.key;
+              return (
+                <CommandItem
+                  key={opt.key ?? '__default'}
+                  value={`effort-${opt.key ?? 'default'}`}
+                  className={cn('!pl-3', isSelected && 'bg-foreground/[0.06]')}
+                  onSelect={() => {
+                    onSelect(opt.key);
+                    setOpen(false);
+                  }}
+                >
+                  <span className={cn(
+                    'flex-1 text-[13px] leading-tight',
+                    isSelected ? 'font-semibold text-foreground' : 'font-medium text-foreground/90',
+                  )}>
+                    {opt.label}
+                  </span>
+                  {opt.key === null && (
+                    <span className="text-[10px] text-muted-foreground/40 normal-case">model default</span>
+                  )}
+                  {isSelected && <Check className="size-3.5 text-foreground shrink-0" />}
+                </CommandItem>
+              );
+            })}
+          </CommandGroup>
+        </CommandList>
+      </CommandPopoverContent>
+    </CommandPopover>
   );
 }
 
