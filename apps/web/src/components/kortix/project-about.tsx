@@ -8,7 +8,7 @@
  *   Details card: path, created at
  */
 
-import { useState, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { toast as sonnerToast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { UnifiedMarkdown } from '@/components/markdown';
@@ -24,8 +24,22 @@ import {
   Check,
   Copy,
   Calendar,
+  Users,
+  Activity,
 } from 'lucide-react';
 import { relativeTime, fullDate } from '@/lib/kortix/task-meta';
+import {
+  useProjectAgents,
+  useTickets,
+  useColumns,
+  useUserHandle,
+} from '@/hooks/kortix/use-kortix-tickets';
+import { defaultColumnIcon } from '@/components/kortix/ticket-board';
+import {
+  AgentAvatar,
+  UserAvatar,
+  useCurrentUserAvatarProps,
+} from '@/components/kortix/agent-avatar';
 
 interface ProjectAboutProps {
   project: any;
@@ -216,6 +230,9 @@ export function ProjectAbout({ project }: ProjectAboutProps) {
           )}
         </section>
 
+        {/* ─── Live dashboard: Team · Snapshot · Active tickets ─── */}
+        {project?.id ? <ProjectDashboard projectId={project.id} /> : null}
+
         {/* ─── Details card (compact, reference info) ─────── */}
         <section>
           <SectionLabel label="Details" />
@@ -290,5 +307,103 @@ function MetaRow({
         {value}
       </div>
     </div>
+  );
+}
+
+// ── Live dashboard: Team roster + Task Snapshot + Active tickets ───────────
+// Computed from the project's agents/columns/tickets — mirrors the reference
+// About page (team + ticket snapshot + active list), on top of CONTEXT.md.
+
+function ProjectDashboard({ projectId }: { projectId: string }) {
+  const { data: agents = [] } = useProjectAgents(projectId);
+  const { data: columns = [] } = useColumns(projectId);
+  const { data: tickets = [] } = useTickets(projectId, { enabled: true });
+  const userHandle = useUserHandle();
+  const { avatarUrl } = useCurrentUserAvatarProps();
+
+  const counts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const c of columns) m.set(c.key, 0);
+    for (const t of tickets) m.set(t.status, (m.get(t.status) ?? 0) + 1);
+    return m;
+  }, [columns, tickets]);
+
+  const colLabel = (key: string) => columns.find((c) => c.key === key)?.label ?? key;
+
+  const active = useMemo(() => {
+    const doneKeys = new Set(
+      columns
+        .filter((c) => ((c as any).icon || defaultColumnIcon(c.key)) === 'done')
+        .map((c) => c.key),
+    );
+    return [...tickets]
+      .filter((t) => !doneKeys.has(t.status))
+      .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+      .slice(0, 8);
+  }, [tickets, columns]);
+
+  // Nothing to show until the board has columns (v2 projects only).
+  if (columns.length === 0) return null;
+
+  return (
+    <>
+      {/* Team */}
+      <section>
+        <div className="flex items-center gap-2 mb-2">
+          <Users className="h-3.5 w-3.5 text-muted-foreground/45" />
+          <span className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground/55 font-semibold">Team</span>
+          <span className="text-[10px] text-muted-foreground/30 tabular-nums">{agents.length + 1}</span>
+        </div>
+        <div className="rounded-xl border border-border/40 divide-y divide-border/30 overflow-hidden bg-card">
+          <div className="flex items-center gap-3 px-4 py-2.5">
+            <UserAvatar handle={userHandle} avatarUrl={avatarUrl} size="sm" />
+            <span className="text-[12.5px] font-semibold">@{userHandle}</span>
+            <span className="text-[10px] text-muted-foreground/40">real human</span>
+          </div>
+          {agents.map((a) => (
+            <div key={a.id} className="flex items-center gap-3 px-4 py-2.5">
+              <AgentAvatar hue={a.color_hue} icon={a.icon} slug={a.slug} name={a.name} size="sm" />
+              <span className="text-[12.5px] font-semibold truncate">@{a.slug}</span>
+              <span className="text-[11.5px] text-muted-foreground/50 truncate">{a.name}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Task Snapshot — count per column */}
+      <section>
+        <div className="flex items-center gap-2 mb-2">
+          <Activity className="h-3.5 w-3.5 text-muted-foreground/45" />
+          <span className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground/55 font-semibold">Task Snapshot</span>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-px rounded-xl border border-border/40 bg-border/40 overflow-hidden">
+          {columns.map((c) => (
+            <div key={c.key} className="bg-card px-3 py-2.5">
+              <div className="text-[10px] uppercase tracking-[0.06em] text-muted-foreground/50 font-medium truncate mb-0.5">{c.label}</div>
+              <div className="text-[16px] font-semibold tabular-nums text-foreground/90">{counts.get(c.key) ?? 0}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Active / Review — open tickets, most recent first */}
+      {active.length > 0 && (
+        <section>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground/55 font-semibold">Active / Review</span>
+            <span className="text-[10px] text-muted-foreground/30 tabular-nums">{active.length}</span>
+          </div>
+          <div className="rounded-xl border border-border/40 divide-y divide-border/30 overflow-hidden bg-card">
+            {active.map((t) => (
+              <div key={t.id} className="flex items-center gap-2.5 px-4 py-2.5">
+                <span className="text-[10px] font-mono tabular-nums text-muted-foreground/40 shrink-0">#{t.number}</span>
+                <span className="text-[12.5px] text-foreground/85 truncate flex-1">{t.title}</span>
+                <span className="text-[10px] uppercase tracking-[0.04em] text-muted-foreground/45 shrink-0">{colLabel(t.status)}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+    </>
   );
 }
