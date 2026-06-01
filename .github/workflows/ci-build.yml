@@ -82,10 +82,15 @@ jobs:
         with:
           submodules: false
 
+      - name: Enable corepack (before setup-node so cache:pnpm can resolve the pnpm store)
+        run: corepack enable
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
@@ -131,15 +136,29 @@ jobs:
         with:
           submodules: false
 
+      - name: Enable corepack (before setup-node so cache:pnpm can resolve the pnpm store)
+        run: corepack enable
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
         run: |
           corepack enable pnpm
           pnpm install --frozen-lockfile
+
+      - name: Cache Next.js build (.next/cache — webpack incremental compile)
+        uses: actions/cache@v4
+        with:
+          path: apps/web/.next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+            nextjs-${{ runner.os }}-
 
       - name: Build (standalone)
         # Heap bumped to 8GB — Next 15+ Tailwind 4 + large App Router can exceed 4GB.
