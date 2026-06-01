@@ -184,12 +184,28 @@ function ProjectSessions({ projectId, enabled }: { projectId: string; enabled: b
   // ?usage=1 → the sandbox rolls up per-session cost/tokens/messageCount. The
   // field is absent (undefined) on older sandbox images, so every read of
   // `s.usage` degrades gracefully (totals bar hides, rows omit the meta).
-  const { data: sessions = [], isLoading } = useKortixProjectSessions(projectId, { enabled, usage: true });
+  // Two parallel queries (distinct cache keys: 'base' vs 'usage' — see
+  // useKortixProjectSessions). The cheap base list (id/title/time) paints the
+  // rows immediately; the slower ?usage=1 rollup (N sequential OpenCode message
+  // fetches, claude-failure-modes §14.3) streams in afterward to fill the totals
+  // bar + per-row cost. The base data is the REAL, final session list — not a
+  // skeleton/placeholder — so showing it first is honest, and the loader gate
+  // keys on the BASE query only.
+  const { data: baseSessions = [], isLoading } = useKortixProjectSessions(projectId, { enabled, usage: false });
+  const { data: usageSessions = [] } = useKortixProjectSessions(projectId, { enabled, usage: true });
+
+  const usageById = useMemo(() => {
+    const m = new Map<string, any>();
+    for (const s of usageSessions as any[]) if (s?.id) m.set(s.id, (s as any).usage);
+    return m;
+  }, [usageSessions]);
+
   const list = useMemo(
-    () => [...(sessions as any[])]
+    () => [...(baseSessions as any[])]
       .filter((s) => !s?.parentID)
-      .sort((a, b) => (b?.time?.updated ?? 0) - (a?.time?.updated ?? 0)),
-    [sessions],
+      .sort((a, b) => (b?.time?.updated ?? 0) - (a?.time?.updated ?? 0))
+      .map((s) => (usageById.has(s.id) ? { ...s, usage: usageById.get(s.id) } : s)),
+    [baseSessions, usageById],
   );
 
   const totals = useMemo(() => {
@@ -206,8 +222,9 @@ function ProjectSessions({ projectId, enabled }: { projectId: string; enabled: b
     return { sessions: list.length, messages, tokens, cost: cost * COST_MARKUP, anyUsage };
   }, [list]);
 
-  // While the (slower, usage-enriched) fetch is in flight, show a loader —
-  // not the empty state, which previously flashed "no sessions" mid-load.
+  // Gate the loader on the BASE query only (the cheap list) — never on the slow
+  // usage fan-out, which would re-introduce the multi-second "Nenhuma sessão"
+  // flash (claude-failure-modes §14.3). Keeps isLoading-before-empty.
   if (isLoading && list.length === 0) {
     return <CenteredLoader />;
   }
@@ -244,6 +261,7 @@ function ProjectSessions({ projectId, enabled }: { projectId: string; enabled: b
               return (
                 <button
                   key={s.id}
+                  data-session-row={s.id}
                   onClick={() => openTabAndNavigate({
                     id: s.id,
                     title: s.title || 'Sessão',
