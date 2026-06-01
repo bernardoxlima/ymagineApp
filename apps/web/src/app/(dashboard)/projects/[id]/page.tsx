@@ -27,6 +27,8 @@ import { useKortixProject, useKortixProjectSessions } from '@/hooks/kortix/use-k
 import { createFilesStore, FilesStoreProvider } from '@/features/files/store/files-store';
 import { FileExplorerPage } from '@/features/files/components/file-explorer-page';
 import { openTabAndNavigate } from '@/stores/tab-store';
+import { formatCost, formatTokens, COST_MARKUP } from '@/ui/turns';
+import { relativeTime } from '@/lib/kortix/task-meta';
 import {
   useTickets,
   useColumns,
@@ -173,14 +175,36 @@ function CenteredLoader() {
   );
 }
 
+/** input+output tokens for a session usage rollup (matches session-chat's display). */
+function usageTokens(u: any): number {
+  return (u?.tokens?.input ?? 0) + (u?.tokens?.output ?? 0);
+}
+
 function ProjectSessions({ projectId, enabled }: { projectId: string; enabled: boolean }) {
-  const { data: sessions = [] } = useKortixProjectSessions(projectId, { enabled });
+  // ?usage=1 → the sandbox rolls up per-session cost/tokens/messageCount. The
+  // field is absent (undefined) on older sandbox images, so every read of
+  // `s.usage` degrades gracefully (totals bar hides, rows omit the meta).
+  const { data: sessions = [] } = useKortixProjectSessions(projectId, { enabled, usage: true });
   const list = useMemo(
     () => [...(sessions as any[])]
       .filter((s) => !s?.parentID)
       .sort((a, b) => (b?.time?.updated ?? 0) - (a?.time?.updated ?? 0)),
     [sessions],
   );
+
+  const totals = useMemo(() => {
+    let cost = 0, tokens = 0, messages = 0, anyUsage = false;
+    for (const s of list) {
+      const u = (s as any).usage;
+      if (!u) continue;
+      anyUsage = true;
+      cost += u.cost ?? 0;
+      tokens += usageTokens(u);
+      messages += u.messageCount ?? 0;
+    }
+    // Raw provider cost → apply COST_MARKUP so it matches the session view + billing.
+    return { sessions: list.length, messages, tokens, cost: cost * COST_MARKUP, anyUsage };
+  }, [list]);
 
   if (list.length === 0) {
     return (
@@ -192,22 +216,62 @@ function ProjectSessions({ projectId, enabled }: { projectId: string; enabled: b
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="container mx-auto max-w-7xl px-3 sm:px-4 py-3 space-y-0.5">
-        {list.map((s) => (
-          <button
-            key={s.id}
-            onClick={() => openTabAndNavigate({
-              id: s.id,
-              title: s.title || 'Sessão',
-              type: 'session',
-              href: `/sessions/${s.id}`,
+      <div className="container mx-auto max-w-7xl px-3 sm:px-4 py-4 space-y-5">
+        {/* PROJECT TOTALS — only when the sandbox returned usage rollups. */}
+        {totals.anyUsage && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-px rounded-xl border border-border/40 bg-border/40 overflow-hidden">
+            <TotalCell label="Sessions" value={String(totals.sessions)} />
+            <TotalCell label="Messages" value={totals.messages.toLocaleString()} />
+            <TotalCell label="Tokens" value={formatTokens(totals.tokens)} />
+            <TotalCell label="Cost" value={formatCost(totals.cost)} />
+          </div>
+        )}
+
+        <div>
+          <div className="flex items-center gap-2 mb-1.5 px-1">
+            <span className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground/55 font-semibold">Chats</span>
+            <span className="text-[10px] text-muted-foreground/30 tabular-nums">{list.length}</span>
+          </div>
+          <div className="space-y-0.5">
+            {list.map((s) => {
+              const u = (s as any).usage;
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => openTabAndNavigate({
+                    id: s.id,
+                    title: s.title || 'Sessão',
+                    type: 'session',
+                    href: `/sessions/${s.id}`,
+                  })}
+                  className="flex w-full items-center gap-3 px-3 py-2 rounded-lg text-[13px] text-left text-muted-foreground hover:bg-sidebar-accent hover:text-foreground transition-colors cursor-pointer"
+                >
+                  <span className="flex-1 truncate">{s.title || 'Sessão sem título'}</span>
+                  {u && (
+                    <span className="shrink-0 text-[11px] text-muted-foreground/45 tabular-nums hidden sm:inline">
+                      {formatTokens(usageTokens(u))} · {formatCost((u.cost ?? 0) * COST_MARKUP)}
+                    </span>
+                  )}
+                  {s?.time?.updated && (
+                    <span className="shrink-0 text-[11px] text-muted-foreground/35 tabular-nums w-16 text-right hidden sm:inline">
+                      {relativeTime(s.time.updated)}
+                    </span>
+                  )}
+                </button>
+              );
             })}
-            className="flex w-full items-center gap-2 px-3 py-2 rounded-lg text-[13px] text-left text-muted-foreground hover:bg-sidebar-accent hover:text-foreground transition-colors cursor-pointer"
-          >
-            <span className="flex-1 truncate">{s.title || 'Sessão sem título'}</span>
-          </button>
-        ))}
+          </div>
+        </div>
       </div>
+    </div>
+  );
+}
+
+function TotalCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bg-card px-4 py-3">
+      <div className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground/55 font-semibold mb-1">{label}</div>
+      <div className="text-[18px] font-semibold tracking-tight tabular-nums text-foreground/90">{value}</div>
     </div>
   );
 }
