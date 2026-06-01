@@ -184,7 +184,7 @@ function ProjectSessions({ projectId, enabled }: { projectId: string; enabled: b
   // ?usage=1 → the sandbox rolls up per-session cost/tokens/messageCount. The
   // field is absent (undefined) on older sandbox images, so every read of
   // `s.usage` degrades gracefully (totals bar hides, rows omit the meta).
-  const { data: sessions = [] } = useKortixProjectSessions(projectId, { enabled, usage: true });
+  const { data: sessions = [], isLoading } = useKortixProjectSessions(projectId, { enabled, usage: true });
   const list = useMemo(
     () => [...(sessions as any[])]
       .filter((s) => !s?.parentID)
@@ -205,6 +205,12 @@ function ProjectSessions({ projectId, enabled }: { projectId: string; enabled: b
     // Raw provider cost → apply COST_MARKUP so it matches the session view + billing.
     return { sessions: list.length, messages, tokens, cost: cost * COST_MARKUP, anyUsage };
   }, [list]);
+
+  // While the (slower, usage-enriched) fetch is in flight, show a loader —
+  // not the empty state, which previously flashed "no sessions" mid-load.
+  if (isLoading && list.length === 0) {
+    return <CenteredLoader />;
+  }
 
   if (list.length === 0) {
     return (
