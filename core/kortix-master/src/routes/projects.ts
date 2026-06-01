@@ -363,6 +363,107 @@ async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T)
   return out
 }
 
+// ── Session → project auto-linking by file activity (D-022 follow-up) ───────
+// Every sandbox session shares one OpenCode project + /workspace cwd, so the
+// only reliable per-project signal is WHICH files a session actually touched.
+// Classify each session by the dominant /workspace/<folder> referenced in its
+// messages and link it to the matching kortix project. Only sessions linked to
+// the root/global project (or unlinked) are (re)assigned — a session already
+// pinned to a sub-project (incl. a manual fix) is never moved.
+
+const RELINK_MIN_REFS = 10
+
+function normWorkspacePath(p: string): string {
+  let s = (p || '').trim()
+  if (!s.startsWith('/workspace')) s = '/workspace/' + s.replace(/^\/+/, '')
+  return s.replace(/\/+$/, '')
+}
+
+async function classifySessionByFiles(
+  sessionId: string,
+  candidates: Array<{ id: string; name: string; match: string }>,
+): Promise<{ id: string; name: string } | null> {
+  let text = ''
+  try {
+    const res = await fetch(
+      `http://${config.OPENCODE_HOST}:${config.OPENCODE_PORT}/session/${encodeURIComponent(sessionId)}/message`,
+      { signal: AbortSignal.timeout(15000) },
+    )
+    if (!res.ok) return null
+    text = await res.text()
+  } catch { return null }
+  let best: { id: string; name: string } | null = null
+  let bestN = 0
+  for (const c of candidates) {
+    let n = 0, i = 0
+    while ((i = text.indexOf(c.match, i)) !== -1) { n++; i += c.match.length }
+    if (n > bestN) { bestN = n; best = { id: c.id, name: c.name } }
+  }
+  return best && bestN >= RELINK_MIN_REFS ? best : null
+}
+
+/**
+ * Re-derive session→project links from file activity. Incremental by default
+ * (only scans root/global-linked sessions changed since the last scan); pass
+ * `force` to ignore the scan cache. Never moves a session already linked to a
+ * sub-project. Safe to run repeatedly (idempotent + convergent).
+ */
+export async function relinkSessionsByFiles(
+  opts: { force?: boolean } = {},
+): Promise<{ scanned: number; relinked: number; byProject: Record<string, number> }> {
+  if (!config.PROJECTS_ENABLED) return { scanned: 0, relinked: 0, byProject: {} }
+  const db = getDb()
+  db.exec('CREATE TABLE IF NOT EXISTS session_link_scan (session_id TEXT PRIMARY KEY, scanned_updated INTEGER NOT NULL)')
+
+  const projects = db.prepare('SELECT id, path, name FROM projects').all() as Array<{ id: string; path: string; name: string }>
+  const candidates = projects
+    .map(p => ({ id: p.id, name: p.name, match: normWorkspacePath(p.path) }))
+    .filter(p => p.match !== '/workspace')
+    .sort((a, b) => b.match.length - a.match.length)
+  if (candidates.length === 0) return { scanned: 0, relinked: 0, byProject: {} }
+
+  const rootIds = new Set<string>([GLOBAL_PROJECT_ID])
+  for (const p of projects) if (normWorkspacePath(p.path) === '/workspace') rootIds.add(p.id)
+
+  const linkBy = new Map<string, string>()
+  for (const r of db.prepare('SELECT session_id, project_id FROM session_projects').all() as Array<{ session_id: string; project_id: string }>) linkBy.set(r.session_id, r.project_id)
+  const scanBy = new Map<string, number>()
+  for (const r of db.prepare('SELECT session_id, scanned_updated FROM session_link_scan').all() as Array<{ session_id: string; scanned_updated: number }>) scanBy.set(r.session_id, r.scanned_updated)
+
+  let list: any[] = []
+  try {
+    const res = await fetch(`http://${config.OPENCODE_HOST}:${config.OPENCODE_PORT}/session`, { signal: AbortSignal.timeout(5000) })
+    if (!res.ok) return { scanned: 0, relinked: 0, byProject: {} }
+    const b = await res.json() as any
+    list = Array.isArray(b) ? b : (b?.data ?? [])
+  } catch { return { scanned: 0, relinked: 0, byProject: {} } }
+
+  // Only sessions linked to root/global (or unlinked); skip unchanged via cache.
+  const targets = list.filter((s: any) => {
+    if (!s?.id) return false
+    const cur = linkBy.get(s.id)
+    if (cur && !rootIds.has(cur)) return false
+    if (!opts.force) {
+      const seen = scanBy.get(s.id)
+      if (seen !== undefined && seen >= (s.time?.updated ?? 0)) return false
+    }
+    return true
+  })
+
+  const upd = db.prepare('INSERT OR REPLACE INTO session_projects (session_id, project_id, set_at) VALUES ($sid, $pid, $now)')
+  const mark = db.prepare('INSERT OR REPLACE INTO session_link_scan (session_id, scanned_updated) VALUES ($sid, $u)')
+  const now = new Date().toISOString()
+  let relinked = 0
+  const byProject: Record<string, number> = {}
+
+  const results = await mapWithConcurrency(targets, 4, async (s: any) => ({ s, hit: await classifySessionByFiles(s.id, candidates) }))
+  for (const { s, hit } of results) {
+    if (hit) { upd.run({ $sid: s.id, $pid: hit.id, $now: now }); relinked++; byProject[hit.name] = (byProject[hit.name] ?? 0) + 1 }
+    mark.run({ $sid: s.id, $u: s.time?.updated ?? 0 })
+  }
+  return { scanned: targets.length, relinked, byProject }
+}
+
 // GET /:id/sessions — sessions linked to this project via session_projects table
 // Enriches with OpenCode session data (title, time, etc.) from the OC API.
 // Pass ?usage=1 to also roll up per-session cost/tokens/messageCount (the
@@ -397,15 +498,22 @@ projectsRouter.get('/:id/sessions', async (c) => {
       // Global workspace view backfills links for every OpenCode session.
       // A SPECIFIC project (paradigm on) must NOT claim every session — only
       // return sessions already linked to it, so the-big-1/watson show theirs.
+      // Only claim sessions NOT linked to ANY project yet — never overwrite an
+      // existing (incl. sub-project / manual) link, so per-project assignment
+      // survives a global-view load.
       if (isGlobal) {
+        const linkedAnywhere = new Set(
+          (db.prepare('SELECT session_id FROM session_projects').all() as Array<{ session_id: string }>)
+            .map(r => r.session_id)
+        )
         for (const s of allSessions) {
-          if (s?.id && !sessionIds.has(s.id)) {
+          if (s?.id && !linkedAnywhere.has(s.id)) {
             try {
               db.prepare('INSERT OR REPLACE INTO session_projects (session_id, project_id, set_at) VALUES ($sid, $pid, $now)')
                 .run({ $sid: s.id, $pid: p.id, $now: new Date().toISOString() })
             } catch {}
-            sessionIds.add(s.id)
           }
+          if (s?.id) sessionIds.add(s.id)
         }
       }
       const visible = isGlobal ? allSessions : allSessions.filter((s: any) => s?.id && sessionIds.has(s.id))
@@ -438,6 +546,15 @@ projectsRouter.get('/:id/sessions', async (c) => {
 
   // Fallback: return just the IDs without enrichment
   return c.json(links.map(l => ({ id: l.session_id })))
+})
+
+// POST /relink-sessions[?force=1] — re-derive session→project links from file
+// activity. Incremental by default (root/global-linked + changed only). Called
+// on a timer at boot (index.ts) and available for a manual re-scan.
+projectsRouter.post('/relink-sessions', async (c) => {
+  const force = c.req.query('force') === '1'
+  const r = await relinkSessionsByFiles({ force })
+  return c.json({ ok: true, ...r })
 })
 
 // GET /by-session/:sessionId — resolve the project linked to a session
