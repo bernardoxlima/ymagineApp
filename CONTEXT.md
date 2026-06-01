@@ -32,6 +32,7 @@ These are referenced by multiple stages. Re-read whichever the stage's Inputs ta
 **Stack best practices (official-docs-sourced)**
 - `icm/references/stack/frontend.md` — Next 15.5 / React 18 / Tailwind 4 / Radix / next-intl / TanStack / Sentry / Konva
 - `icm/references/stack/backend.md` — Hono / Bun 1.2 / Drizzle / Supabase self-hosted / pnpm / Zod / Postgres 15
+- `icm/references/stack/agents.md` — Kortix team agents (the autonomous Board): PM/worker design, model-by-role, seed lifecycle — load when creating agents / seeding a project / editing `core/kortix-master` agent logic
 
 **Model behavior (for editing prompts / model routing)**
 - `icm/references/models/coding-routers.md` — Kimi K2.6 / Grok 4.20 MA / MiMo V2.5 + V2.5-Pro
