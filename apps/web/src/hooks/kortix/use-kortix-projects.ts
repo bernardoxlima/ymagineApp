@@ -117,14 +117,15 @@ export function useKortixProjectForSession(sessionId: string, options: KortixPro
  */
 export function useKortixProjectSessions(
   projectId: string,
-  options: KortixProjectQueryOptions = {},
+  options: KortixProjectQueryOptions & { usage?: boolean } = {},
 ) {
   const { user, isLoading: isAuthLoading } = useAuth();
   const serverVersion = useServerStore((s) => s.serverVersion);
   const serverUrl = useServerStore((s) => s.getActiveServerUrl());
+  const wantUsage = options.usage === true;
   return useQuery<any[]>({
-    queryKey: ['kortix', 'projects', projectId, 'sessions', user?.id ?? 'anonymous', serverUrl, serverVersion],
-    queryFn: () => kortixFetch<any[]>(serverUrl, `/${encodeURIComponent(projectId)}/sessions`),
+    queryKey: ['kortix', 'projects', projectId, 'sessions', wantUsage ? 'usage' : 'base', user?.id ?? 'anonymous', serverUrl, serverVersion],
+    queryFn: () => kortixFetch<any[]>(serverUrl, `/${encodeURIComponent(projectId)}/sessions${wantUsage ? '?usage=1' : ''}`),
     enabled: !isAuthLoading && !!user && !!serverUrl && !!projectId && (options.enabled ?? true),
     staleTime: 15_000,
     gcTime: 5 * 60 * 1000,
