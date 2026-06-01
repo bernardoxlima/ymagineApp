@@ -51,10 +51,15 @@
 #   such file or directory
 # The official docker:dind 28.x stack works reliably in the same environment,
 # so we vendor its daemon/runtime binaries into the Ubuntu desktop image.
-FROM docker:28-dind AS docker-dind-bins
+# Base pinned by digest (2026-06-01) so the layer cache (build-sandbox-image.yml) can't
+# silently freeze a moving tag, and builds are reproducible. To pick up a newer dind base,
+# resolve + bump it: `docker buildx imagetools inspect docker:28-dind` → new sha256.
+FROM docker:28-dind@sha256:2a232a42256f70d78e3cc5d2b5d6b3276710a0de0596c145f627ecfae90282ac AS docker-dind-bins
 
 # ── Main image ───────────────────────────────────────────────────────────────
-FROM lscr.io/linuxserver/webtop:ubuntu-xfce
+# Base pinned by digest (2026-06-01) — same reasoning as the dind stage above. Bump via:
+# `docker buildx imagetools inspect lscr.io/linuxserver/webtop:ubuntu-xfce` → new sha256.
+FROM lscr.io/linuxserver/webtop:ubuntu-xfce@sha256:dc752c7ac78278e39b5cd32e85cbfe7cfc7f68c32f03f06bf91bcb1af1b7737d
 
 ARG SANDBOX_VERSION=0.0.0-dev
 ARG DEBIAN_FRONTEND=noninteractive
