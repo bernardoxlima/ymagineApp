@@ -436,3 +436,28 @@ D-020). See [[claude-failure-modes]] §15 + `stack/agents.md`.
 
 Best-practice sourcing: Anthropic engineering principles (`gandalf-skill/docs/anthropic-principles.md`)
 applied in `stack/agents.md`. [[D-020]] [[D-022]] [[D-023]]
+
+## D-025 · Perf work targets network round-trips, not the DB — measured, not assumed (D-022 perf follow-up)
+
+**Context.** Request: make screen loads feel ~50ms. A 6-dimension sourced audit surfaced real DB
+defects (`enrichTicket` N+1, missing indexes, `journal_mode=DELETE`-not-WAL, per-request
+`new Database()`). But BEFORE implementing, a read-only harness measured the actual hop budget
+(2026-06-01, `icm/output/perf/`): the VPS is in **Boston**, the operator in **Brazil** → ICMP RTT
+**~141ms**; server-side board read **~4ms** (loopback); SQLite **sub-ms**; data tiny (4 tickets). So
+ONE Atlantic round-trip (141ms) dwarfs the entire server (4ms), and ~50ms cold is physically
+impossible (Denis chose code-only / keep-Boston / no stale cache).
+
+**Decision.**
+1. **Measure the hop budget before optimizing.** RTT vs server-time vs DB-time tells you WHERE the
+   time is. Here the bottleneck is network **round-trip COUNT**, not the DB. Harness:
+   `rtt-floor.sh` + `vps-measure.sh` + `db-bench.ts`; baseline `baseline-2026-06-01.md`.
+2. **Real levers (shipped):** prefetch-on-hover so the click paints from a warm FRESH cache (C-2,
+   PR #28); split a slow blocking payload so real base data paints first (C-1, PR #27). Next: bundle
+   (less JS over the Atlantic), client render (chat streaming, D-1).
+3. **DB batches DEFERRED as premature** at this data scale — N+1/WAL/indexes/statement-cache save
+   microseconds next to a 141ms RTT. Correct hygiene; revisit when data grows (hundreds of
+   tickets/events). B-2 (indexes) is the cheap future-proof if/when wanted.
+4. **No "dumb cache":** prefetch/cache must stay fresh (fetched ahead / SSE-invalidated), never trade
+   correctness for perceived speed; skeletons that fake speed are out of scope.
+
+Lesson → [[claude-failure-modes]] §16. [[D-022]] [[D-023]]
