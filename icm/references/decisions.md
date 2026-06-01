@@ -379,3 +379,35 @@ Deployment performed (PRs #4-#11 + manual ops):
   `/projects/<id>` to `tab-route-resolver` + `page-tab-content` resolveComponent, read params via
   `use()` like `/tasks/[id]`); project view has Board/Milestones/Team/Arquivos/Sessões (#11).
 - The `/board` global route is left intact; per-project pages are `/projects/<id>`.
+
+## D-023 · Sandbox session↔project association is derived from file activity (D-022 follow-up)
+
+**Context.** The per-project view (`/projects/[id]`) was rebuilt to the full tab set
+(About · Board · Milestones · Files · Sessions · Settings) and the Sessions tab must show
+*that project's* sessions. But in the self-hosted sandbox every OpenCode session shares ONE
+`projectID` and runs in `directory: "/workspace"` — the "projects" (`watson`, `the-big-1`,
+`lesmills-company-scan`, …) are **sub-folders**, not separate OpenCode projects. So nothing
+structural distinguishes them. The pre-`eb32a2c08` image hid this by resolving every
+`/:id/sessions` to the global project (so all projects showed all sessions); the scoping fix
+exposed it (sub-projects went empty). See [[claude-failure-modes]] §12.
+
+**Decision.** Associate a session to a kortix project by the **files it touched**: scan
+`/session/:id/message` for the dominant `/workspace/<folder>/` prefix (≥10 refs) and link it in
+`session_projects` (PK `session_id` → one project per session; markup-free `INSERT OR REPLACE`).
+
+- **Existing sessions** — one-time backfill applied to the prod DB (8 reassigned →
+  watson 4 / the-big-1 2 / lesmills-company-scan 2; the rest stay on the `/workspace` root project).
+- **Going forward** — `relinkSessionsByFiles()` in `core/kortix-master/src/routes/projects.ts`,
+  run by a boot timer (+60s, then every 15min) and exposed as `POST /kortix/projects/relink-sessions[?force=1]`.
+  Incremental via a `session_link_scan` cache (each session classified once per change), convergent,
+  idempotent. It **never moves a session already on a sub-project** → auto-classifications and
+  manual corrections both stick. The global-view backfill now claims only UNLINKED sessions
+  (was greedy → clobbered sub-project links on a global-view load).
+- **Cost gate** — the cost/tokens-per-session rollup (`?usage=1`) and the message-scan are both
+  bounded-concurrency (4) + per-fetch timeout; `?usage=1` is opt-in so the global board pays nothing.
+
+**Caveat.** The file heuristic is fallible — a *"The Big One consulting team"* session referenced
+`/workspace/watson` 2440× yet belonged to `the-big-1` (human reassigned; the never-move rule protects it).
+
+**Ships via the sandbox image (Stage 08), tag `session-autolink`.** The frontend half
+(dashboard About + per-session totals + loading fix) ships via `deploy-hostinger`. [[D-022]]
