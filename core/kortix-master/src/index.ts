@@ -35,7 +35,7 @@ import shareRouter from './routes/share'
 import shareProxyRouter from './routes/share-proxy'
 import marketplaceRouter from './routes/marketplace'
 import preferencesRouter from './routes/preferences'
-import projectsRouter from './routes/projects'
+import projectsRouter, { relinkSessionsByFiles } from './routes/projects'
 import { tasksRouter } from './routes/tasks'
 import { ticketsRouter, ticketProjectsRouter } from './routes/tickets'
 import milestonesRouter from './routes/milestones'
@@ -554,6 +554,18 @@ app.route('/kortix/preferences', preferencesRouter)
 app.route('/kortix/projects', projectsRouter)
 app.route('/kortix/projects/', projectsRouter)
 app.route('/kortix/tasks', tasksRouter)
+
+// Going-forward session→project auto-linking (D-022). Classify sessions by
+// the project files they touched and link them. Runs shortly after boot, then
+// periodically; incremental + convergent, so steady-state cost is near zero.
+if (config.PROJECTS_ENABLED) {
+  setTimeout(() => {
+    relinkSessionsByFiles()
+      .then(r => { if (r.relinked) console.log(`[Kortix Master] session auto-link: relinked ${r.relinked}/${r.scanned}`, r.byProject) })
+      .catch(() => {})
+  }, 60_000)
+  setInterval(() => { relinkSessionsByFiles().catch(() => {}) }, 15 * 60_000)
+}
 app.route('/kortix/tasks/', tasksRouter)
 
 // v2 board — tickets, columns, fields, templates, project_agents
