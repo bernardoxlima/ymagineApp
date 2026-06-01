@@ -81,7 +81,8 @@ import { isBillingEnabled } from '@/lib/config';
 import { featureFlags } from '@/lib/feature-flags';
 
 import { useCreateOpenCodeSession, useOpenCodeSessions } from '@/hooks/opencode/use-opencode-sessions';
-import { useKortixProjects } from '@/hooks/kortix/use-kortix-projects';
+import { useKortixProjects, usePrefetchKortixProject } from '@/hooks/kortix/use-kortix-projects';
+import { usePrefetchProjectBoard } from '@/hooks/kortix/use-kortix-tickets';
 import { openTabAndNavigate } from '@/stores/tab-store';
 import { useServerStore } from '@/stores/server-store';
 import { useOpenCodePendingStore } from '@/stores/opencode-pending-store';
@@ -385,6 +386,18 @@ function SessionsFlyout({ collapsed }: { collapsed?: boolean }) {
 function ProjectsFlyout() {
   const { data: projects } = useKortixProjects(undefined, { enabled: featureFlags.enableProjects });
 
+  // Warm the project's data on hover/focus (see SidebarSections for rationale).
+  const prefetchProject = usePrefetchKortixProject();
+  const prefetchBoard = usePrefetchProjectBoard();
+  const hoverTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onRowHover = React.useCallback((id: string) => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    hoverTimer.current = setTimeout(() => { prefetchProject(id); prefetchBoard(id); }, 100);
+  }, [prefetchProject, prefetchBoard]);
+  const onRowLeave = React.useCallback(() => {
+    if (hoverTimer.current) { clearTimeout(hoverTimer.current); hoverTimer.current = null; }
+  }, []);
+
   const sorted = React.useMemo(() => {
     if (!projects || !Array.isArray(projects)) return [];
     return [...projects].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -398,6 +411,10 @@ function ProjectsFlyout() {
         sorted.map((project) => (
           <button
             key={project.id}
+            onMouseEnter={() => onRowHover(project.id)}
+            onFocus={() => onRowHover(project.id)}
+            onMouseLeave={onRowLeave}
+            onBlur={onRowLeave}
             onClick={() => {
               openTabAndNavigate({
                 id: `project:${project.id}`,
@@ -659,6 +676,21 @@ function SidebarSections() {
   // Projects — Kortix projects (the-big-1, watson, …). Listed only when the
   // projects paradigm flag is on; each opens /projects/<id>. (D-022)
   const { data: projectsData } = useKortixProjects(undefined, { enabled: featureFlags.enableProjects });
+
+  // Prefetch a project's About + board data on hover/focus (hover-intent ~100ms)
+  // so the click paints from a warm, FRESH cache instead of a cold ~141ms
+  // round-trip (BR↔Boston). Single shared timer → a fast mouse-sweep prefetches
+  // only the row the cursor rests on; staleTime dedupes; never prefetches usage.
+  const prefetchProject = usePrefetchKortixProject();
+  const prefetchBoard = usePrefetchProjectBoard();
+  const hoverTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onRowHover = React.useCallback((id: string) => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    hoverTimer.current = setTimeout(() => { prefetchProject(id); prefetchBoard(id); }, 100);
+  }, [prefetchProject, prefetchBoard]);
+  const onRowLeave = React.useCallback(() => {
+    if (hoverTimer.current) { clearTimeout(hoverTimer.current); hoverTimer.current = null; }
+  }, []);
   const sortedProjects = React.useMemo(() => {
     if (!projectsData || !Array.isArray(projectsData)) return [];
     return [...projectsData].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -727,6 +759,10 @@ function SidebarSections() {
                   <button
                     key={project.id}
                     onClick={() => handleProjectClick(project)}
+                    onMouseEnter={() => onRowHover(project.id)}
+                    onFocus={() => onRowHover(project.id)}
+                    onMouseLeave={onRowLeave}
+                    onBlur={onRowLeave}
                     className={cn(
                       'flex items-center gap-2 w-full px-3 py-1.5 rounded-lg text-[13px] cursor-pointer transition-colors duration-150',
                       active

@@ -6,6 +6,7 @@
  * /kortix/projects/:id/* compatibility routes.
  */
 
+import { useCallback } from 'react';
 import {
   useQuery,
   useMutation,
@@ -417,6 +418,39 @@ export function useProjectAgents(projectId?: string) {
     enabled: !!projectId,
     staleTime: 30_000,
   });
+}
+
+/**
+ * Prefetch a project's board data (columns + agents + tickets) on sidebar
+ * hover/focus so opening the project paints from a warm, FRESH cache instead of
+ * a cold ~141ms round-trip. Mirrors useColumns/useProjectAgents/useTickets
+ * EXACTLY (same keys + queryFns) so it dedupes instead of double-fetching.
+ * Does NOT prefetch the expensive ?usage=1 sessions path. Reads the server
+ * store at call time; staleTime only dedupes rapid re-hover — the mounted
+ * queries govern ongoing freshness, so no stale data is ever shown.
+ */
+export function usePrefetchProjectBoard() {
+  const qc = useQueryClient();
+  return useCallback((projectId: string) => {
+    if (!projectId) return;
+    const serverUrl = useServerStore.getState().getActiveServerUrl();
+    if (!serverUrl) return;
+    qc.prefetchQuery({
+      queryKey: ticketKeys.columns(projectId),
+      queryFn: () => kfetch<TicketColumn[]>(serverUrl, `/kortix/projects/${encodeURIComponent(projectId)}/columns`),
+      staleTime: 30_000,
+    });
+    qc.prefetchQuery({
+      queryKey: ticketKeys.agents(projectId),
+      queryFn: () => kfetch<ProjectAgent[]>(serverUrl, `/kortix/projects/${encodeURIComponent(projectId)}/agents`),
+      staleTime: 30_000,
+    });
+    qc.prefetchQuery({
+      queryKey: ticketKeys.tickets(projectId),
+      queryFn: () => kfetch<Ticket[]>(serverUrl, `/kortix/tickets?project_id=${encodeURIComponent(projectId)}`),
+      staleTime: 3_000,
+    });
+  }, [qc]);
 }
 
 export function useCreateProjectAgent() {
