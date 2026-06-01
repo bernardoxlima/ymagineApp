@@ -413,3 +413,4 @@ Bit us when `?usage=1` made the sessions fetch ~10× slower (0.1s → 1.2s).
 - [ ] Deploying a sandbox image? → `docker image prune -a -f` first (disk full); re-`docker login ghcr.io` from the VPS `.env` token if pull says `denied` (§13)
 - [ ] About to SSH to prod? → key is `~/.ssh/vps_temp`; needs explicit user authorization (classifier blocks it otherwise); feed scripts via `'sh -s' <<'REMOTE'` (§14)
 - [ ] Frontend list with a slow fetch? → gate on `isLoading` before the empty state (§14.3)
+- [ ] Trimming L0 by delegating routing/refs to L1? → confirm L1 actually covers EVERYTHING you removed BEFORE merging (Stage 08 fell out of routing this way — #19 shipped the gap, #20 fixed it)
