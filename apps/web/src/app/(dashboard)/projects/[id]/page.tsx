@@ -1,28 +1,34 @@
 'use client';
 
 /**
- * Per-project view — Board / Milestones / Team scoped to a single project id
- * from the route (the-big-1, watson, …). Restored from the redirect stub the
- * single-workspace collapse left behind (D-022).
+ * Per-project view — full work-surface layout scoped to a single project id
+ * from the route (the-big-1, watson, …).
  *
- * Self-contained clone of /board's structure, but `projectId` comes from the
- * route instead of the hardcoded `proj-workspace`, so each project shows its
- * OWN board/tickets/milestones/team. /board stays untouched (global workspace).
+ * Uses the shared `ProjectHeader` (v2 tab set: About · Board · Milestones ·
+ * Files · Sessions · Settings) so a project opened from the sidebar shows the
+ * same organisation as the canonical workspace. Team / Credentials / Triggers
+ * / Channels / Board-config are folded INTO Settings (sub-pills) — they are
+ * not top-level tabs. `projectId` comes from the route instead of the
+ * hardcoded `proj-workspace`, so each project shows its OWN board/tickets/
+ * milestones/team/context.
+ *
+ * Re-wires the `ProjectHeader` + `ProjectAbout` + `ProjectSettingsTab`
+ * components that the single-workspace collapse (D-022) left orphaned.
  *
  * Gated by `featureFlags.enableProjects` — when off, redirects to /workspace.
  */
 
 import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import * as TabsPrimitive from '@radix-ui/react-tabs';
-import { Loader2, Plus } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import { featureFlags } from '@/lib/feature-flags';
 import { useKortixProject, useKortixProjectSessions } from '@/hooks/kortix/use-kortix-projects';
 import { createFilesStore, FilesStoreProvider } from '@/features/files/store/files-store';
 import { FileExplorerPage } from '@/features/files/components/file-explorer-page';
 import { openTabAndNavigate } from '@/stores/tab-store';
+import { formatCost, formatTokens, COST_MARKUP } from '@/ui/turns';
+import { relativeTime } from '@/lib/kortix/task-meta';
 import {
   useTickets,
   useColumns,
@@ -36,17 +42,9 @@ import { TicketBoard } from '@/components/kortix/ticket-board';
 import { NewTicketDialog } from '@/components/kortix/new-ticket-dialog';
 import { TicketDetailDrawer } from '@/components/kortix/ticket-detail-drawer';
 import { MilestonesTab } from '@/components/kortix/milestones-tab';
-import { TeamTab } from '@/components/kortix/team-tab';
-
-type Tab = 'board' | 'milestones' | 'team' | 'files' | 'sessions';
-
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'board', label: 'Board' },
-  { id: 'milestones', label: 'Milestones' },
-  { id: 'team', label: 'Team' },
-  { id: 'files', label: 'Arquivos' },
-  { id: 'sessions', label: 'Sessões' },
-];
+import { ProjectHeader, type ProjectTab } from '@/components/kortix/project-header';
+import { ProjectAbout } from '@/components/kortix/project-about';
+import { ProjectSettingsTab, type SettingsSection } from '@/components/kortix/project-settings-tab';
 
 function WorkspaceRedirect() {
   const router = useRouter();
@@ -71,7 +69,11 @@ export default function ProjectPage({ params }: { params?: Promise<{ id: string 
 
 function ProjectInner({ projectId }: { projectId: string }) {
   const { data: project } = useKortixProject(projectId);
-  const [tab, setTab] = useState<Tab>('board');
+  // Land on About — the project's CONTEXT.md is the natural overview, same as
+  // the first tab in `ProjectHeader`'s v2 set.
+  const [tab, setTab] = useState<ProjectTab>('about');
+  // Settings sub-section lifted here so it survives tab-away / tab-back.
+  const [settingsSection, setSettingsSection] = useState<SettingsSection>('team');
   const [newTicketOpen, setNewTicketOpen] = useState(false);
   const [newTicketDefaultStatus, setNewTicketDefaultStatus] = useState<string | undefined>();
 
@@ -95,65 +97,32 @@ function ProjectInner({ projectId }: { projectId: string }) {
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header — project name + underline tabs left, action button right. */}
-      <header className="shrink-0 border-b border-border/60 bg-background">
-        <div className="container mx-auto max-w-7xl h-11 px-3 sm:px-4">
-          <TabsPrimitive.Root
-            value={tab}
-            onValueChange={(v) => setTab(v as Tab)}
-            className="h-full flex items-center gap-4"
-          >
-            <span className="text-[13px] font-semibold tracking-tight truncate max-w-[40%] shrink-0">
-              {project?.name ?? 'Projeto'}
-            </span>
-            <TabsPrimitive.List className="flex items-center h-full gap-5 shrink-0">
-              {TABS.map((t) => (
-                <TabsPrimitive.Trigger
-                  key={t.id}
-                  value={t.id}
-                  className={cn(
-                    'relative h-full inline-flex items-center text-[13px] font-medium tracking-tight cursor-pointer transition-colors outline-none',
-                    'text-muted-foreground/60 hover:text-foreground',
-                    'data-[state=active]:text-foreground',
-                    'after:absolute after:inset-x-0 after:bottom-0 after:h-[2px] after:bg-foreground after:rounded-full',
-                    'after:opacity-0 data-[state=active]:after:opacity-100 after:transition-opacity',
-                  )}
-                >
-                  {t.label}
-                </TabsPrimitive.Trigger>
-              ))}
-            </TabsPrimitive.List>
-
-            <div className="flex-1 flex items-center justify-end gap-1.5">
-              {tab === 'board' && (
-                <Button
-                  size="sm"
-                  onClick={() => openNewTicket()}
-                  title="New ticket (C)"
-                  className="h-7 px-2.5 text-[12px] gap-1.5"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">New ticket</span>
-                  <kbd className="hidden sm:inline-flex items-center justify-center min-w-[18px] h-4 px-1 rounded border border-primary-foreground/20 bg-primary-foreground/10 text-[10px] font-mono font-medium leading-none text-primary-foreground/90">
-                    C
-                  </kbd>
-                </Button>
-              )}
-            </div>
-          </TabsPrimitive.Root>
-        </div>
-      </header>
+      {/* Shared header — project name + v2 underline tabs, New-ticket button
+          always visible (matches the reference: About/Sessions show it too). */}
+      <ProjectHeader
+        project={project ?? { name: 'Projeto' }}
+        tab={tab}
+        onTabChange={setTab}
+        onNewTask={() => openNewTicket()}
+        // This page implements the v2 work surfaces (tickets/board); always
+        // render the v2 tab set regardless of the stored structure_version.
+        structureVersion={2}
+      />
 
       {/* Body — pre-mounted TabPanels; inactive hidden via CSS so state survives. */}
       <div className="flex-1 min-h-0 relative">
+        <TabPanel active={tab === 'about'}>
+          {project ? (
+            <ProjectAbout project={project} />
+          ) : (
+            <CenteredLoader />
+          )}
+        </TabPanel>
         <TabPanel active={tab === 'board'}>
           <BoardTabPanel projectId={projectId} columns={columns} onNewTicket={openNewTicket} />
         </TabPanel>
         <TabPanel active={tab === 'milestones'}>
           <MilestonesTab projectId={projectId} />
-        </TabPanel>
-        <TabPanel active={tab === 'team'}>
-          <TeamTab projectId={projectId} />
         </TabPanel>
         <TabPanel active={tab === 'files'}>
           {project?.path && project.path !== '/' ? (
@@ -168,6 +137,14 @@ function ProjectInner({ projectId }: { projectId: string }) {
         </TabPanel>
         <TabPanel active={tab === 'sessions'}>
           <ProjectSessions projectId={projectId} enabled={tab === 'sessions'} />
+        </TabPanel>
+        <TabPanel active={tab === 'settings'}>
+          <ProjectSettingsTab
+            projectId={projectId}
+            projectPath={project?.path}
+            section={settingsSection}
+            onSectionChange={setSettingsSection}
+          />
         </TabPanel>
       </div>
 
@@ -190,14 +167,44 @@ function TabPanel({ active, children }: { active: boolean; children: React.React
   );
 }
 
+function CenteredLoader() {
+  return (
+    <div className="flex h-full items-center justify-center">
+      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+    </div>
+  );
+}
+
+/** input+output tokens for a session usage rollup (matches session-chat's display). */
+function usageTokens(u: any): number {
+  return (u?.tokens?.input ?? 0) + (u?.tokens?.output ?? 0);
+}
+
 function ProjectSessions({ projectId, enabled }: { projectId: string; enabled: boolean }) {
-  const { data: sessions = [] } = useKortixProjectSessions(projectId, { enabled });
+  // ?usage=1 → the sandbox rolls up per-session cost/tokens/messageCount. The
+  // field is absent (undefined) on older sandbox images, so every read of
+  // `s.usage` degrades gracefully (totals bar hides, rows omit the meta).
+  const { data: sessions = [] } = useKortixProjectSessions(projectId, { enabled, usage: true });
   const list = useMemo(
     () => [...(sessions as any[])]
       .filter((s) => !s?.parentID)
       .sort((a, b) => (b?.time?.updated ?? 0) - (a?.time?.updated ?? 0)),
     [sessions],
   );
+
+  const totals = useMemo(() => {
+    let cost = 0, tokens = 0, messages = 0, anyUsage = false;
+    for (const s of list) {
+      const u = (s as any).usage;
+      if (!u) continue;
+      anyUsage = true;
+      cost += u.cost ?? 0;
+      tokens += usageTokens(u);
+      messages += u.messageCount ?? 0;
+    }
+    // Raw provider cost → apply COST_MARKUP so it matches the session view + billing.
+    return { sessions: list.length, messages, tokens, cost: cost * COST_MARKUP, anyUsage };
+  }, [list]);
 
   if (list.length === 0) {
     return (
@@ -209,22 +216,62 @@ function ProjectSessions({ projectId, enabled }: { projectId: string; enabled: b
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="container mx-auto max-w-7xl px-3 sm:px-4 py-3 space-y-0.5">
-        {list.map((s) => (
-          <button
-            key={s.id}
-            onClick={() => openTabAndNavigate({
-              id: s.id,
-              title: s.title || 'Sessão',
-              type: 'session',
-              href: `/sessions/${s.id}`,
+      <div className="container mx-auto max-w-7xl px-3 sm:px-4 py-4 space-y-5">
+        {/* PROJECT TOTALS — only when the sandbox returned usage rollups. */}
+        {totals.anyUsage && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-px rounded-xl border border-border/40 bg-border/40 overflow-hidden">
+            <TotalCell label="Sessions" value={String(totals.sessions)} />
+            <TotalCell label="Messages" value={totals.messages.toLocaleString()} />
+            <TotalCell label="Tokens" value={formatTokens(totals.tokens)} />
+            <TotalCell label="Cost" value={formatCost(totals.cost)} />
+          </div>
+        )}
+
+        <div>
+          <div className="flex items-center gap-2 mb-1.5 px-1">
+            <span className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground/55 font-semibold">Chats</span>
+            <span className="text-[10px] text-muted-foreground/30 tabular-nums">{list.length}</span>
+          </div>
+          <div className="space-y-0.5">
+            {list.map((s) => {
+              const u = (s as any).usage;
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => openTabAndNavigate({
+                    id: s.id,
+                    title: s.title || 'Sessão',
+                    type: 'session',
+                    href: `/sessions/${s.id}`,
+                  })}
+                  className="flex w-full items-center gap-3 px-3 py-2 rounded-lg text-[13px] text-left text-muted-foreground hover:bg-sidebar-accent hover:text-foreground transition-colors cursor-pointer"
+                >
+                  <span className="flex-1 truncate">{s.title || 'Sessão sem título'}</span>
+                  {u && (
+                    <span className="shrink-0 text-[11px] text-muted-foreground/45 tabular-nums hidden sm:inline">
+                      {formatTokens(usageTokens(u))} · {formatCost((u.cost ?? 0) * COST_MARKUP)}
+                    </span>
+                  )}
+                  {s?.time?.updated && (
+                    <span className="shrink-0 text-[11px] text-muted-foreground/35 tabular-nums w-16 text-right hidden sm:inline">
+                      {relativeTime(s.time.updated)}
+                    </span>
+                  )}
+                </button>
+              );
             })}
-            className="flex w-full items-center gap-2 px-3 py-2 rounded-lg text-[13px] text-left text-muted-foreground hover:bg-sidebar-accent hover:text-foreground transition-colors cursor-pointer"
-          >
-            <span className="flex-1 truncate">{s.title || 'Sessão sem título'}</span>
-          </button>
-        ))}
+          </div>
+        </div>
       </div>
+    </div>
+  );
+}
+
+function TotalCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bg-card px-4 py-3">
+      <div className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground/55 font-semibold mb-1">{label}</div>
+      <div className="text-[18px] font-semibold tracking-tight tabular-nums text-foreground/90">{value}</div>
     </div>
   );
 }
@@ -250,11 +297,7 @@ function BoardTabPanel({
   const closeTicket = useCallback(() => setOpenTicketId(null), []);
 
   if (isLoading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <CenteredLoader />;
   }
 
   return (
