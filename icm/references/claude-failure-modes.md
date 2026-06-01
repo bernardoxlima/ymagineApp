@@ -402,6 +402,19 @@ Bit us when `?usage=1` made the sessions fetch ~10× slower (0.1s → 1.2s).
 
 ---
 
+## §15 — Team tab empty / "I built a team" but it's invisible (D-024)
+
+Two unrelated "agents": **Board team agents** = `project_agents` DB rows (the Team tab + the board
+read these; created via Team tab → New agent, or `seedV2Project`). **OpenCode session agents** =
+`.opencode/agent/*.md` files. An LLM writing agent FILES into a project (even a full team) creates
+session-agents the Board never sees — and that OpenCode (cwd `/workspace`) often never loads, and
+that may point at a dead model (e.g. removed `kortix-yolo`, D-020). Plus: the boot v1→v2 migration
+flips `structure_version=2` WITHOUT seeding → "zombie v2" (0 columns, 0 agents). If the Team tab is
+empty or a hand-built team "won't run": you want a **Board team agent (DB row)** — seed the project
+or use the Team tab. Full design + model-routing → `stack/agents.md`. Fix → [[decisions]] D-024.
+
+---
+
 ## Quick pre-commit checklist (use before every PR)
 
 - [ ] Did you change any shell script / Dockerfile / host-exec string? → re-read §1.
@@ -420,3 +433,4 @@ Bit us when `?usage=1` made the sessions fetch ~10× slower (0.1s → 1.2s).
 - [ ] About to SSH to prod? → key is `~/.ssh/vps_temp`; needs explicit user authorization (classifier blocks it otherwise); feed scripts via `'sh -s' <<'REMOTE'` (§14)
 - [ ] Frontend list with a slow fetch? → gate on `isLoading` before the empty state (§14.3)
 - [ ] Trimming L0 by delegating routing/refs to L1? → confirm L1 actually covers EVERYTHING you removed BEFORE merging (Stage 08 fell out of routing this way — #19 shipped the gap, #20 fixed it)
+- [ ] Creating/expecting agents that work the Board? → they must be `project_agents` rows (Team tab → New agent, or `seed-v2`), NOT hand-written `.opencode/agent` files; seed an unconfigured model = dead agent (§15, `stack/agents.md`)
