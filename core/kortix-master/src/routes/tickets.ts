@@ -513,10 +513,18 @@ ticketProjectsRouter.put('/:id/templates', async (c) => {
 
 // ── Agents (team) ─────────────────────────────────────────────────────────
 
-ticketProjectsRouter.get('/:id/agents', (c) => {
+ticketProjectsRouter.get('/:id/agents', async (c) => {
   const db = getDb()
   const project = resolveProject(db, decodeURIComponent(c.req.param('id')))
   if (!project) return c.json({ error: 'Project not found' }, 404)
+  // Lazy-seed (D-024): a v2 project with no @project-manager is a "zombie v2" —
+  // flipped to v2 by the boot migration without seeding (or created without a
+  // seed). Self-heal on first board/Team access so it's never empty, covering
+  // every create/migrate path with one hook. Idempotent (skips once seeded).
+  if (project.structure_version >= 2 && project.id !== 'proj-workspace' && !getAgentBySlug(db, project.id, 'project-manager')) {
+    try { await seedV2Project(db, { ...project }) }
+    catch (e) { console.warn(`[agents] lazy-seed failed for ${project.id}:`, String(e)) }
+  }
   return c.json(listAgents(db, project.id))
 })
 
