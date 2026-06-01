@@ -413,6 +413,21 @@ flips `structure_version=2` WITHOUT seeding → "zombie v2" (0 columns, 0 agents
 empty or a hand-built team "won't run": you want a **Board team agent (DB row)** — seed the project
 or use the Team tab. Full design + model-routing → `stack/agents.md`. Fix → [[decisions]] D-024.
 
+## §16 — Optimizing the wrong layer: measure the hop budget before "make it faster" (D-025)
+
+A "make it faster" request invites optimizing whatever looks worst in the code (here: a SQLite N+1,
+missing indexes, `journal_mode=DELETE`). DON'T — first measure WHERE the time actually is. A read-only
+harness (2026-06-01, `icm/output/perf/`) showed the ymagineApp VPS is in **Boston** and the operator
+in **Brazil**: one round-trip is **~141ms** (ICMP, measured), while the entire server answers a board
+read in **~4ms** and SQLite is sub-millisecond. So the DB "defects" save microseconds invisible next
+to one Atlantic crossing — the real bottleneck is network **round-trip COUNT**. Fix THAT
+(prefetch-on-hover → warm FRESH cache; don't block first paint on a slow payload; less initial JS),
+not the DB. The DB batches were DEFERRED as premature at 4-ticket scale (same trap as gold-plating
+indexes on an empty table). Rules: (1) for perf work, build a tiny hop-budget harness FIRST; never
+optimize a layer you haven't measured; (2) ~50ms cold is physically impossible across an ocean (1 RTT
+= 2.8× the budget) — say so honestly, and reach for warm-cache navigation (real data prefetched, NOT
+a skeleton) as the legitimate path. Fix → [[decisions]] D-025.
+
 ---
 
 ## Quick pre-commit checklist (use before every PR)
@@ -434,3 +449,4 @@ or use the Team tab. Full design + model-routing → `stack/agents.md`. Fix → 
 - [ ] Frontend list with a slow fetch? → gate on `isLoading` before the empty state (§14.3)
 - [ ] Trimming L0 by delegating routing/refs to L1? → confirm L1 actually covers EVERYTHING you removed BEFORE merging (Stage 08 fell out of routing this way — #19 shipped the gap, #20 fixed it)
 - [ ] Creating/expecting agents that work the Board? → they must be `project_agents` rows (Team tab → New agent, or `seed-v2`), NOT hand-written `.opencode/agent` files; seed an unconfigured model = dead agent (§15, `stack/agents.md`)
+- [ ] Asked to "make it faster"? → measure the hop budget (RTT vs server vs DB) with a read-only harness FIRST; never optimize a layer you haven't measured. RTT often dwarfs the server (Boston↔Brazil ≈ 141ms vs ~4ms server) → fix round-trip count / prefetch, not the DB (§16, D-025)
