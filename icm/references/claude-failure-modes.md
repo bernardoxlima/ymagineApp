@@ -299,6 +299,103 @@ NOT the operator's PAT — don't extract it expecting a ~40-char PAT.
 
 ---
 
+## §12 — Tightening what data is shown without backfilling that data = a regression (D-023)
+
+Shipped a new sandbox image carrying upstream `eb32a2c08` (per-project session scoping) WITHOUT
+migrating the data it relies on. The OLD image always resolved `/:id/sessions` to the global
+project, so EVERY project showed ALL sessions (looked full). The "more correct" scoping made
+every sub-folder project's Sessions tab go **empty** — read by the user as "it broke." Same
+class as §7, but for behaviour that *narrows* a result set (scoping / filtering / RLS / a stricter
+`WHERE`): **ship the data backfill in the SAME change**, or "more correct + empty" reads as a
+regression.
+
+### §12.1 — There is NO structural per-project signal for sandbox sessions
+
+Every OpenCode session in the self-hosted sandbox shares ONE `projectID` and runs in
+`directory: "/workspace"` — the "projects" (`watson`, `the-big-1`, …) are **sub-folders**, not
+separate OpenCode projects. So `projectID` / `directory` / `opencode_id` are identical across all
+sessions and distinguish nothing. The only reliable signal is **which files the session touched**:
+scan `/session/:id/message` for the dominant `/workspace/<folder>/` prefix (≥10 refs) and map
+`<folder>` → kortix project by path. See [[decisions]] D-023.
+
+### §12.2 — `session_projects` is one-project-per-session; never clobber a sub-project link
+
+PK is `session_id` (one row per session). Backfill + auto-link MUST:
+- **Only (re)assign sessions linked to the root/global project** — NEVER move a session already on
+  a sub-project. That single rule preserves both auto-classifications AND manual corrections.
+- The file heuristic IS fallible: a session titled *"The Big One consulting team"* referenced
+  `/workspace/watson` 2440× → actually belonged to `the-big-1` (the human reassigned it). The
+  human's word overrides the files; the never-move-sub-project rule is what makes the fix stick.
+- The global-view backfill must claim only **UNLINKED** sessions. The original code
+  `INSERT OR REPLACE`d every session not linked to global → loading the global Sessions view
+  **clobbered** every sub-project link. Check "linked to ANY project", not "linked to THIS one".
+
+### §12.3 — `bun:sqlite` write open
+
+```ts
+// WRONG — throws SQLiteError: bad parameter or other API misuse (SQLITE_MISUSE)
+const db = new Database(path, { readonly: false })
+// RIGHT — default is read-write+create; only pass an option to RESTRICT
+const db = MODE === 'APPLY' ? new Database(path) : new Database(path, { readonly: true })
+```
+
+## §13 — VPS sandbox-image deploy: disk + GHCR login
+
+### §13.1 — The root disk is full; prune before every sandbox pull
+
+The 96G VPS root sits at ~100% (each `ymagineapp-computer` image is ~20GB; a few tags = 60GB+).
+`docker pull <new sandbox tag>` then dies mid-extract: `write ... : no space left on device`.
+Run `docker image prune -a -f` FIRST — it keeps images used by RUNNING containers (the current
+`SANDBOX_IMAGE` + the 6 compose services stay), reclaimed ~52GB here. Keep ≥1 prior tag for
+rollback; api/frontend rollback re-pulls from GHCR anyway.
+
+### §13.2 — GHCR daemon login expires → `pull ... denied`
+
+`docker pull` of the private `ymagineapp-computer` returns `error from registry: denied` even
+when a prior pull worked (the image was just cached locally, so no auth was exercised). The daemon
+isn't logged in. Re-login on the VPS using creds ALREADY in `/root/.kortix/.env` — never paste a
+token in chat (§10/§11.1):
+
+```sh
+GU=$(grep -E '^GHCR_PULL_USER='  /root/.kortix/.env | head -1 | cut -d= -f2-)
+GT=$(grep -E '^GHCR_PULL_TOKEN=' /root/.kortix/.env | head -1 | cut -d= -f2-)
+printf '%s' "$GT" | docker login ghcr.io -u "$GU" --password-stdin   # token stays on the VPS
+```
+
+## §14 — SSH access from the start, and verifying the real diff
+
+### §14.1 — Have prod SSH ready at session start (this cost time)
+
+- The temp key is `~/.ssh/vps_temp` — NOT `~/.ssh/claude-temp`. `claude-temp` is the pubkey
+  *label* in the VPS `authorized_keys`, not the private-key filename. (See `deploy-runbook.md`.)
+- The auto-mode classifier **blocks** `ssh root@<host>` to prod until the user authorizes it
+  **in words** — pasting a control-panel screenshot or a pubkey is NOT enough. Operator: at the
+  start of any deploy session, pre-authorize the `ssh ... root@<host>` Bash rule (or just say "you
+  can SSH") so deploy work doesn't stall mid-task waiting for a permission.
+- Connect with `-o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15`; feed
+  remote scripts via a `'sh -s' <<'REMOTE'` heredoc on stdin — sidesteps the §1.3 quoting minefield.
+
+### §14.2 — Trust `git diff`, not `gh pr merge`'s file summary
+
+`gh pr merge` reported "22 files / 1010 insertions" for a 3-file PR, because the PR base was a
+local merge commit whose tree equalled remote `main`. Don't panic at the summary — confirm what a
+merge actually adds with `git diff <prev-main-sha>..origin/main --stat` (here it was exactly the 3
+intended files).
+
+### §14.3 — Don't render the empty state during load
+
+```tsx
+// WRONG — flashes "Nenhuma sessão" for the whole (slow) fetch, looks like "no data"
+const { data = [] } = useQuery(...)
+if (list.length === 0) return <Empty/>
+// RIGHT — gate on isLoading first
+const { data = [], isLoading } = useQuery(...)
+if (isLoading && !list.length) return <Loader/>
+```
+Bit us when `?usage=1` made the sessions fetch ~10× slower (0.1s → 1.2s).
+
+---
+
 ## Quick pre-commit checklist (use before every PR)
 
 - [ ] Did you change any shell script / Dockerfile / host-exec string? → re-read §1.
@@ -311,3 +408,8 @@ NOT the operator's PAT — don't extract it expecting a ~40-char PAT.
 - [ ] Is the CI gate appropriate for what you actually want to catch? (§8)
 - [ ] Are any secret values in your diff, in a shell command, or in a log line? (§10, §11.1)
 - [ ] Reasoning about sandbox/deploy? → checked `ALLOWED_SANDBOX_PROVIDERS` + `docker ps` on the VPS; remember `NEXT_PUBLIC_*` is build-time and `core/` ships via the sandbox image, not `deploy-hostinger` (§11)
+- [ ] Shipping behaviour that NARROWS a result set (scope/filter/RLS)? → backfill the existing data in the SAME change (§12, §7)
+- [ ] Writing a `core/` data script to `kortix.db`? → bun:sqlite write = `new Database(path)` (not `{readonly:false}`); never move a session already on a sub-project (§12.2)
+- [ ] Deploying a sandbox image? → `docker image prune -a -f` first (disk full); re-`docker login ghcr.io` from the VPS `.env` token if pull says `denied` (§13)
+- [ ] About to SSH to prod? → key is `~/.ssh/vps_temp`; needs explicit user authorization (classifier blocks it otherwise); feed scripts via `'sh -s' <<'REMOTE'` (§14)
+- [ ] Frontend list with a slow fetch? → gate on `isLoading` before the empty state (§14.3)
