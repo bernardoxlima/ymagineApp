@@ -1,23 +1,27 @@
 'use client';
 
 /**
- * Per-project view — Board / Milestones / Team scoped to a single project id
- * from the route (the-big-1, watson, …). Restored from the redirect stub the
- * single-workspace collapse left behind (D-022).
+ * Per-project view — full work-surface layout scoped to a single project id
+ * from the route (the-big-1, watson, …).
  *
- * Self-contained clone of /board's structure, but `projectId` comes from the
- * route instead of the hardcoded `proj-workspace`, so each project shows its
- * OWN board/tickets/milestones/team. /board stays untouched (global workspace).
+ * Uses the shared `ProjectHeader` (v2 tab set: About · Board · Milestones ·
+ * Files · Sessions · Settings) so a project opened from the sidebar shows the
+ * same organisation as the canonical workspace. Team / Credentials / Triggers
+ * / Channels / Board-config are folded INTO Settings (sub-pills) — they are
+ * not top-level tabs. `projectId` comes from the route instead of the
+ * hardcoded `proj-workspace`, so each project shows its OWN board/tickets/
+ * milestones/team/context.
+ *
+ * Re-wires the `ProjectHeader` + `ProjectAbout` + `ProjectSettingsTab`
+ * components that the single-workspace collapse (D-022) left orphaned.
  *
  * Gated by `featureFlags.enableProjects` — when off, redirects to /workspace.
  */
 
 import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import * as TabsPrimitive from '@radix-ui/react-tabs';
-import { Loader2, Plus } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import { featureFlags } from '@/lib/feature-flags';
 import { useKortixProject, useKortixProjectSessions } from '@/hooks/kortix/use-kortix-projects';
 import { createFilesStore, FilesStoreProvider } from '@/features/files/store/files-store';
@@ -36,17 +40,9 @@ import { TicketBoard } from '@/components/kortix/ticket-board';
 import { NewTicketDialog } from '@/components/kortix/new-ticket-dialog';
 import { TicketDetailDrawer } from '@/components/kortix/ticket-detail-drawer';
 import { MilestonesTab } from '@/components/kortix/milestones-tab';
-import { TeamTab } from '@/components/kortix/team-tab';
-
-type Tab = 'board' | 'milestones' | 'team' | 'files' | 'sessions';
-
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'board', label: 'Board' },
-  { id: 'milestones', label: 'Milestones' },
-  { id: 'team', label: 'Team' },
-  { id: 'files', label: 'Arquivos' },
-  { id: 'sessions', label: 'Sessões' },
-];
+import { ProjectHeader, type ProjectTab } from '@/components/kortix/project-header';
+import { ProjectAbout } from '@/components/kortix/project-about';
+import { ProjectSettingsTab, type SettingsSection } from '@/components/kortix/project-settings-tab';
 
 function WorkspaceRedirect() {
   const router = useRouter();
@@ -71,7 +67,11 @@ export default function ProjectPage({ params }: { params?: Promise<{ id: string 
 
 function ProjectInner({ projectId }: { projectId: string }) {
   const { data: project } = useKortixProject(projectId);
-  const [tab, setTab] = useState<Tab>('board');
+  // Land on About — the project's CONTEXT.md is the natural overview, same as
+  // the first tab in `ProjectHeader`'s v2 set.
+  const [tab, setTab] = useState<ProjectTab>('about');
+  // Settings sub-section lifted here so it survives tab-away / tab-back.
+  const [settingsSection, setSettingsSection] = useState<SettingsSection>('team');
   const [newTicketOpen, setNewTicketOpen] = useState(false);
   const [newTicketDefaultStatus, setNewTicketDefaultStatus] = useState<string | undefined>();
 
@@ -95,65 +95,32 @@ function ProjectInner({ projectId }: { projectId: string }) {
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header — project name + underline tabs left, action button right. */}
-      <header className="shrink-0 border-b border-border/60 bg-background">
-        <div className="container mx-auto max-w-7xl h-11 px-3 sm:px-4">
-          <TabsPrimitive.Root
-            value={tab}
-            onValueChange={(v) => setTab(v as Tab)}
-            className="h-full flex items-center gap-4"
-          >
-            <span className="text-[13px] font-semibold tracking-tight truncate max-w-[40%] shrink-0">
-              {project?.name ?? 'Projeto'}
-            </span>
-            <TabsPrimitive.List className="flex items-center h-full gap-5 shrink-0">
-              {TABS.map((t) => (
-                <TabsPrimitive.Trigger
-                  key={t.id}
-                  value={t.id}
-                  className={cn(
-                    'relative h-full inline-flex items-center text-[13px] font-medium tracking-tight cursor-pointer transition-colors outline-none',
-                    'text-muted-foreground/60 hover:text-foreground',
-                    'data-[state=active]:text-foreground',
-                    'after:absolute after:inset-x-0 after:bottom-0 after:h-[2px] after:bg-foreground after:rounded-full',
-                    'after:opacity-0 data-[state=active]:after:opacity-100 after:transition-opacity',
-                  )}
-                >
-                  {t.label}
-                </TabsPrimitive.Trigger>
-              ))}
-            </TabsPrimitive.List>
-
-            <div className="flex-1 flex items-center justify-end gap-1.5">
-              {tab === 'board' && (
-                <Button
-                  size="sm"
-                  onClick={() => openNewTicket()}
-                  title="New ticket (C)"
-                  className="h-7 px-2.5 text-[12px] gap-1.5"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">New ticket</span>
-                  <kbd className="hidden sm:inline-flex items-center justify-center min-w-[18px] h-4 px-1 rounded border border-primary-foreground/20 bg-primary-foreground/10 text-[10px] font-mono font-medium leading-none text-primary-foreground/90">
-                    C
-                  </kbd>
-                </Button>
-              )}
-            </div>
-          </TabsPrimitive.Root>
-        </div>
-      </header>
+      {/* Shared header — project name + v2 underline tabs, New-ticket button
+          always visible (matches the reference: About/Sessions show it too). */}
+      <ProjectHeader
+        project={project ?? { name: 'Projeto' }}
+        tab={tab}
+        onTabChange={setTab}
+        onNewTask={() => openNewTicket()}
+        // This page implements the v2 work surfaces (tickets/board); always
+        // render the v2 tab set regardless of the stored structure_version.
+        structureVersion={2}
+      />
 
       {/* Body — pre-mounted TabPanels; inactive hidden via CSS so state survives. */}
       <div className="flex-1 min-h-0 relative">
+        <TabPanel active={tab === 'about'}>
+          {project ? (
+            <ProjectAbout project={project} />
+          ) : (
+            <CenteredLoader />
+          )}
+        </TabPanel>
         <TabPanel active={tab === 'board'}>
           <BoardTabPanel projectId={projectId} columns={columns} onNewTicket={openNewTicket} />
         </TabPanel>
         <TabPanel active={tab === 'milestones'}>
           <MilestonesTab projectId={projectId} />
-        </TabPanel>
-        <TabPanel active={tab === 'team'}>
-          <TeamTab projectId={projectId} />
         </TabPanel>
         <TabPanel active={tab === 'files'}>
           {project?.path && project.path !== '/' ? (
@@ -168,6 +135,14 @@ function ProjectInner({ projectId }: { projectId: string }) {
         </TabPanel>
         <TabPanel active={tab === 'sessions'}>
           <ProjectSessions projectId={projectId} enabled={tab === 'sessions'} />
+        </TabPanel>
+        <TabPanel active={tab === 'settings'}>
+          <ProjectSettingsTab
+            projectId={projectId}
+            projectPath={project?.path}
+            section={settingsSection}
+            onSectionChange={setSettingsSection}
+          />
         </TabPanel>
       </div>
 
@@ -186,6 +161,14 @@ function TabPanel({ active, children }: { active: boolean; children: React.React
   return (
     <div className={cn('absolute inset-0 flex flex-col overflow-hidden', !active && 'hidden')}>
       {children}
+    </div>
+  );
+}
+
+function CenteredLoader() {
+  return (
+    <div className="flex h-full items-center justify-center">
+      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
     </div>
   );
 }
@@ -250,11 +233,7 @@ function BoardTabPanel({
   const closeTicket = useCallback(() => setOpenTicketId(null), []);
 
   if (isLoading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <CenteredLoader />;
   }
 
   return (
