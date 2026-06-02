@@ -161,7 +161,7 @@ function LoginContent() {
   const isExpired = searchParams.get('expired') === 'true';
   const expiredEmail = searchParams.get('email') || '';
   const referralCodeParam = searchParams.get('ref') || '';
-  const isPasswordMode = searchParams.get('auth') === 'password';
+  const isPasswordMode = searchParams.get('auth') !== 'magic';
   const t = useTranslations('auth');
 
   const [phase, setPhase] = useState<AuthPhase>('lock');
@@ -698,7 +698,7 @@ function LoginContent() {
               <div className="bg-background/80 dark:bg-background/75 backdrop-blur-2xl border border-foreground/[0.06] rounded-[20px] px-7 py-8">
                 {/* Shared header */}
                 <p className="text-[11px] text-center text-foreground/30 tracking-[0.2em] uppercase mb-6">
-                  Sign in to Kortix
+                  Sign in to Ymagine
                 </p>
 
                 {isPasswordMode ? (
