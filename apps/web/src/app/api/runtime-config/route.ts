@@ -6,7 +6,7 @@ export const revalidate = 0
 export async function GET() {
   const runtimeEnv = getServerPublicEnv()
   const payload = JSON.stringify(runtimeEnv)
-  const script = `window.__KORTIX_RUNTIME_CONFIG=${payload};window.__RUNTIME_ENV=window.__KORTIX_RUNTIME_CONFIG;`
+  const script = `window.__YMAGINE_RUNTIME_CONFIG=${payload};window.__KORTIX_RUNTIME_CONFIG=window.__YMAGINE_RUNTIME_CONFIG;window.__RUNTIME_ENV=window.__YMAGINE_RUNTIME_CONFIG;`
 
   return new Response(script, {
     headers: {

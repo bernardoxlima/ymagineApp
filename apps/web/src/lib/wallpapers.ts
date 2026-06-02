@@ -23,8 +23,8 @@ export const WALLPAPERS: Wallpaper[] = [
     id: 'brandmark',
     name: 'Brandmark',
     type: 'svg',
-    svgUrl: '/kortix-brandmark-bg.svg',
-    thumbnailUrl: '/kortix-brandmark-bg.svg',
+    svgUrl: '/ymagine-brandmark-bg.svg',
+    thumbnailUrl: '/ymagine-brandmark-bg.svg',
   },
   {
     id: 'symbol',
