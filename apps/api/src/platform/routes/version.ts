@@ -210,8 +210,16 @@ async function getAllVersions(): Promise<VersionEntry[]> {
   const runningVersion = getRunningVersion();
   const versions: VersionEntry[] = [];
 
+  // Stable releases (GitHub) + dev builds (Docker Hub) are independent
+  // public-internet fetches — run them in parallel so the cold-cache cost is
+  // max(GitHub, DockerHub) instead of the sum. Both helpers swallow their own
+  // errors (return []), so Promise.all never rejects.
+  const [releases, devTags] = await Promise.all([
+    fetchStableReleases(20),
+    fetchDockerHubDevTags(20),
+  ]);
+
   // Stable releases from GitHub Releases API
-  const releases = await fetchStableReleases(20);
   for (const release of releases) {
     const version = release.tag_name.replace(/^v/, '');
     versions.push({
@@ -225,7 +233,6 @@ async function getAllVersions(): Promise<VersionEntry[]> {
   }
 
   // Dev builds from Docker Hub Tags API
-  const devTags = await fetchDockerHubDevTags(20);
   for (const tag of devTags) {
     const sha8 = tag.name.replace('dev-', '');
     versions.push({
@@ -312,8 +319,15 @@ versionRouter.get('/changelog', async (c) => {
   const channel = c.req.query('channel') || 'all';
   const entries: any[] = [];
 
+  // Fetch the two independent public-internet sources in parallel (gated by
+  // channel) so the uncached changelog pays max(GitHub, DockerHub), not the sum.
+  // Both helpers swallow their own errors (return []), so Promise.all never rejects.
+  const [releases, devTags] = await Promise.all([
+    channel === 'stable' || channel === 'all' ? fetchStableReleases(20) : Promise.resolve([] as GHRelease[]),
+    channel === 'dev' || channel === 'all' ? fetchDockerHubDevTags(20) : Promise.resolve([] as DockerHubTag[]),
+  ]);
+
   if (channel === 'stable' || channel === 'all') {
-    const releases = await fetchStableReleases(20);
     for (const release of releases) {
       if (release.prerelease) continue;
       const version = release.tag_name.replace(/^v/, '');
@@ -329,7 +343,6 @@ versionRouter.get('/changelog', async (c) => {
   }
 
   if (channel === 'dev' || channel === 'all') {
-    const devTags = await fetchDockerHubDevTags(20);
     for (const tag of devTags) {
       const sha8 = tag.name.replace('dev-', '');
       entries.push({

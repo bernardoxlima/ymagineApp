@@ -16,6 +16,14 @@ import type {
   TriggerDeployedInfo,
   TriggerListResult,
 } from './types';
+import { createHash } from 'node:crypto';
+
+// Module-level OAuth token cache keyed by hashed credentials, so a provider
+// rebuilt per request (Tier-1 header creds / Tier-2 per-account creds) reuses
+// the token instead of re-running the Boston→Pipedream handshake before every
+// call. The cached value is an auth credential with its own expiry (never user
+// data); all app/account/connection payloads are still fetched fresh per request.
+const tokenCache = new Map<string, { token: string; exp: number }>();
 
 interface PipedreamConfig {
   clientId: string;
@@ -40,9 +48,6 @@ export class PipedreamProvider implements AuthProvider {
   private readonly clientSecret: string;
   private readonly projectId: string;
   private readonly environment: string;
-
-  private accessToken: string | null = null;
-  private tokenExpiresAt = 0;
 
   private actionsCache = new Map<string, { data: ActionListResult; expiresAt: number }>();
   private static readonly ACTIONS_CACHE_TTL = 30 * 60 * 1000;
@@ -71,8 +76,16 @@ export class PipedreamProvider implements AuthProvider {
   }
 
   private async getApiToken(): Promise<string> {
-    if (this.accessToken && Date.now() < this.tokenExpiresAt - 60_000) {
-      return this.accessToken;
+    // Key the cache by (clientId, clientSecret, environment) — the token is minted
+    // via client_credentials from exactly those, so identical creds share a token
+    // and distinct accounts never collide.
+    const cacheKey = createHash('sha256')
+      .update(`${this.clientId}:${this.clientSecret}:${this.environment}`)
+      .digest('hex');
+
+    const cached = tokenCache.get(cacheKey);
+    if (cached && Date.now() < cached.exp - 60_000) {
+      return cached.token;
     }
 
     const res = await fetch(`${this.baseUrl}/v1/oauth/token`, {
@@ -91,9 +104,11 @@ export class PipedreamProvider implements AuthProvider {
     }
 
     const data = await res.json() as { access_token: string; expires_in: number };
-    this.accessToken = data.access_token;
-    this.tokenExpiresAt = Date.now() + data.expires_in * 1000;
-    return this.accessToken;
+    tokenCache.set(cacheKey, {
+      token: data.access_token,
+      exp: Date.now() + data.expires_in * 1000,
+    });
+    return data.access_token;
   }
 
   private async apiRequest<T>(
