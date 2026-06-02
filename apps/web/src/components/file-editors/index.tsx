@@ -6,7 +6,6 @@ import { cn } from '@/lib/utils';
 import { MarkdownEditor, type MarkdownEditorControls } from './markdown-editor';
 import { UnifiedMarkdown } from '@/components/markdown';
 import { CodeEditor } from './code-editor';
-import { PdfRenderer } from '@/components/file-renderers/pdf-renderer';
 import { ImageRenderer } from '@/components/file-renderers/image-renderer';
 import { VideoRenderer } from '@/components/file-renderers/video-renderer';
 import { BinaryRenderer } from '@/components/file-renderers/binary-renderer';
@@ -22,6 +21,13 @@ import { processUnicodeContent, getFileTypeFromExtension, getLanguageFromExtensi
 const SpreadsheetViewer = dynamic(
   () => import('@/components/thread/tool-views/spreadsheet/SpreadsheetViewer').then((mod) => mod.SpreadsheetViewer),
   { ssr: false, loading: () => <div className="flex items-center justify-center h-full text-muted-foreground">Loading spreadsheet...</div> }
+);
+
+// Lazy load PdfRenderer — react-pdf bundles pdfjs-dist (~330KB) that otherwise
+// ships in this chunk's first load even when no PDF is ever opened.
+const PdfRenderer = dynamic(
+  () => import('@/components/file-renderers/pdf-renderer').then((mod) => mod.PdfRenderer),
+  { ssr: false, loading: () => <div className="flex items-center justify-center h-full text-muted-foreground">Loading PDF...</div> }
 );
 
 export type EditableFileType =

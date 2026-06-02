@@ -40,10 +40,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         } = await supabase.auth.getSession();
 
         if (currentSession) {
-          // Validate the session against the auth server — catches stale
-          // sessions after a DB reset where the JWT is valid but the user
-          // no longer exists.
-          const { error: userError } = await supabase.auth.getUser();
+          // Validate the JWT locally via getClaims() (ES256 + JWKS — no per-call
+          // network round-trip) instead of getUser(), which hit the auth server on
+          // every cold load (~141ms over the Atlantic). Trade-off: a token that is
+          // cryptographically valid but whose user row was deleted server-side is
+          // no longer caught here; onAuthStateChange still handles SIGNED_OUT.
+          const { error: userError } = await supabase.auth.getClaims();
           if (userError) {
             console.warn('[AuthProvider] Stale session detected, signing out:', userError.message);
             await supabase.auth.signOut();

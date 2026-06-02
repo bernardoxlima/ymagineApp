@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef, useSyncExternalStore } from 'react';
+import { useEffect, useState, useCallback, useRef, useSyncExternalStore, useMemo } from 'react';
 import { WallpaperBackground } from '@/components/ui/wallpaper-background';
-import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/components/AuthProvider';
 
 const SLEEP_KEY = 'kortix-sleep-active-v1';
 
@@ -81,19 +81,26 @@ function SleepClock({ phase }: { phase: 'in' | 'visible' | 'out' }) {
 }
 
 function useSleepUser() {
-  const [user, setUser] = useState<{ name: string; avatar: string } | null>(null);
-  useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
-        setUser({
-          name: data.user.user_metadata?.name || data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || 'User',
-          avatar: data.user.user_metadata?.avatar_url || data.user.user_metadata?.picture || '',
-        });
-      }
-    });
-  }, []);
-  return user;
+  // Reuse the in-memory AuthProvider user (kept fresh by onAuthStateChange)
+  // instead of a redundant cross-Atlantic supabase.auth.getUser() on mount.
+  const { user: authUser } = useAuth();
+  return useMemo(
+    () =>
+      authUser
+        ? {
+            name:
+              authUser.user_metadata?.name ||
+              authUser.user_metadata?.full_name ||
+              authUser.email?.split('@')[0] ||
+              'User',
+            avatar:
+              authUser.user_metadata?.avatar_url ||
+              authUser.user_metadata?.picture ||
+              '',
+          }
+        : null,
+    [authUser],
+  );
 }
 
 export function SleepOverlay() {
