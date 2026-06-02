@@ -196,21 +196,20 @@ export default async function RootLayout({
         />
 
         {/* Static SEO meta tags - rendered in initial HTML */}
-        <title>Kortix – The Autonomous Company Operating System</title>
-        <meta name="description" content="A cloud computer where AI agents run your company. Connect 3,000+ tools, configure autonomous agents, set triggers — and the machine operates 24/7 with persistent memory." />
-        <meta name="keywords" content="Kortix, autonomous company operating system, AI agents, self-driving company, cloud computer, AI automation, agent orchestration, goal loops, AI triggers, persistent memory, autonomous workforce, AI operations" />
-        <meta property="og:title" content="Kortix – The Autonomous Company Operating System" />
-        <meta property="og:description" content="A cloud computer where AI agents run your company. Connect 3,000+ tools, configure autonomous agents, set triggers — and the machine operates 24/7 with persistent memory." />
-        <meta property="og:image" content="https://kortix.com/banner.png" />
-        <meta property="og:url" content="https://kortix.com" />
+        <title>Ymagine – AI Agent Platform</title>
+        <meta name="description" content="A cloud computer where AI agents run your business. Connect thousands of tools, configure autonomous agents, set triggers — and the machine operates 24/7 with persistent memory." />
+        <meta name="keywords" content="Ymagine, AI agents, autonomous agents, AI automation, agent orchestration, cloud computer, persistent memory, AI operations" />
+        <meta property="og:title" content="Ymagine – AI Agent Platform" />
+        <meta property="og:description" content="A cloud computer where AI agents run your business. Connect thousands of tools, configure autonomous agents, set triggers — and the machine operates 24/7 with persistent memory." />
+        <meta property="og:image" content="https://ymagine.app/favicon.png" />
+        <meta property="og:url" content="https://ymagine.app" />
         <meta property="og:type" content="website" />
-        <meta property="og:site_name" content="Kortix" />
+        <meta property="og:site_name" content="Ymagine" />
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="Kortix – The Autonomous Company Operating System" />
-        <meta name="twitter:description" content="A cloud computer where AI agents run your company. Connect 3,000+ tools, configure autonomous agents, set triggers — and the machine operates 24/7 with persistent memory." />
-        <meta name="twitter:image" content="https://kortix.com/banner.png" />
-        <meta name="twitter:site" content="@kortix" />
-        <link rel="canonical" href="https://kortix.com" />
+        <meta name="twitter:title" content="Ymagine – AI Agent Platform" />
+        <meta name="twitter:description" content="A cloud computer where AI agents run your business. Connect thousands of tools, configure autonomous agents, set triggers — and the machine operates 24/7 with persistent memory." />
+        <meta name="twitter:image" content="https://ymagine.app/favicon.png" />
+        <link rel="canonical" href="https://ymagine.app" />
 
         {/* iOS Smart App Banner - shows native install banner in Safari */}
         {!featureFlags.disableMobileAdvertising ? (
@@ -226,15 +225,13 @@ export default async function RootLayout({
               '@context': 'https://schema.org',
               '@type': 'Organization',
               name: siteMetadata.name,
-              alternateName: ['Kortix', 'Kortix AI', 'Kortix – The Autonomous Company Operating System'],
+              alternateName: ['Ymagine'],
               url: siteMetadata.url,
               logo: `${siteMetadata.url}/favicon.png`,
               description: siteMetadata.description,
               foundingDate: '2024',
               sameAs: [
-                'https://github.com/kortix-ai/suna',
-                'https://x.com/kortix',
-                'https://linkedin.com/company/kortix',
+                siteMetadata.url,
               ],
               contactPoint: {
                 '@type': 'ContactPoint',
@@ -252,7 +249,7 @@ export default async function RootLayout({
               '@context': 'https://schema.org',
               '@type': 'SoftwareApplication',
               name: siteMetadata.title,
-              alternateName: [siteMetadata.name, 'Kortix'],
+              alternateName: [siteMetadata.name],
               applicationCategory: 'BusinessApplication',
               operatingSystem: 'Web, macOS, Windows, Linux',
               description: siteMetadata.description,

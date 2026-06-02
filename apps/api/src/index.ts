@@ -186,13 +186,11 @@ if (config.INTERNAL_KORTIX_ENV === 'dev') {
 const API_VERSION = process.env.SANDBOX_VERSION || 'dev';
 
 app.get('/health', (c) => {
+  // Keep the response minimal — version, env, and tunnel state are internal
+  // details that help attackers fingerprint and target this deployment.
   return c.json({
     status: 'ok',
-    service: 'kortix-api',
-    version: API_VERSION,
     timestamp: new Date().toISOString(),
-    env: config.ENV_MODE,
-    tunnel: getTunnelServiceStatus(),
   });
 });
 
@@ -200,11 +198,7 @@ app.get('/health', (c) => {
 app.get('/v1/health', (c) => {
   return c.json({
     status: 'ok',
-    service: 'kortix-api',
-    version: API_VERSION,
     timestamp: new Date().toISOString(),
-    env: config.ENV_MODE,
-    tunnel: getTunnelServiceStatus(),
   });
 });
 
