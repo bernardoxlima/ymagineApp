@@ -10,6 +10,11 @@ declare global {
 
 function readRawEnv(): Partial<RuntimeEnv> {
   if (typeof window !== 'undefined') {
+    // Prefer the new Ymagine-branded window variable; fall back to the legacy
+    // __KORTIX_RUNTIME_CONFIG alias (kept for backward compat during rollout).
+    if ((window as any).__YMAGINE_RUNTIME_CONFIG) {
+      return (window as any).__YMAGINE_RUNTIME_CONFIG
+    }
     if (window.__KORTIX_RUNTIME_CONFIG) {
       return window.__KORTIX_RUNTIME_CONFIG
     }

@@ -118,7 +118,7 @@ export default async function RootLayout({
             Docker images get correct env vars regardless of build-time defaults. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `window.__KORTIX_RUNTIME_CONFIG=${JSON.stringify(runtimeEnv)};window.__RUNTIME_ENV=window.__KORTIX_RUNTIME_CONFIG;`,
+            __html: `window.__YMAGINE_RUNTIME_CONFIG=${JSON.stringify(runtimeEnv)};window.__KORTIX_RUNTIME_CONFIG=window.__YMAGINE_RUNTIME_CONFIG;window.__RUNTIME_ENV=window.__YMAGINE_RUNTIME_CONFIG;`,
           }}
         />
 
@@ -211,10 +211,7 @@ export default async function RootLayout({
         <meta name="twitter:image" content="https://ymagine.app/favicon.png" />
         <link rel="canonical" href="https://ymagine.app" />
 
-        {/* iOS Smart App Banner - shows native install banner in Safari */}
-        {!featureFlags.disableMobileAdvertising ? (
-          <meta name="apple-itunes-app" content="app-id=6754448524, app-argument=kortix://" />
-        ) : null}
+        {/* iOS Smart App Banner removed — Ymagine does not have a separate iOS app */}
 
 
 

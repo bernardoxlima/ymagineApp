@@ -12,7 +12,7 @@
 # ║    supabase stop           (stop all containers)                           ║
 # ╚══════════════════════════════════════════════════════════════════════════════╝
 
-project_id = "kortix-local"
+project_id = "ymagine-local"
 
 # ─── API (PostgREST) ─────────────────────────────────────────────────────────
 [api]
