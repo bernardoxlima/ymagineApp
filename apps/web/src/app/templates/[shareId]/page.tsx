@@ -26,7 +26,7 @@ import {
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
-import { KortixLoader } from '@/components/ui/kortix-loader';
+import { AppLoader } from '@/components/ui/app-loader';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -38,7 +38,7 @@ import Image from 'next/image';
 import { useTheme } from 'next-themes';
 import ColorThief from 'colorthief';
 import { AgentAvatar } from '@/components/thread/content/agent-avatar';
-import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { AppLogo } from '@/components/sidebar/app-logo';
 
 interface MarketplaceTemplate {
   template_id: string;
@@ -264,7 +264,7 @@ export default function TemplateSharePage() {
     return (
       <div className="min-h-screen">
         <div className="flex items-center justify-center h-screen">
-          <KortixLoader size="large" />
+          <AppLoader size="large" />
         </div>
       </div>
     );
@@ -341,7 +341,7 @@ export default function TemplateSharePage() {
             <div className="flex h-14 items-center">
               <div className="flex items-center">
                 <Link href="/" className="flex items-center">
-                  <KortixLogo size={24} />
+                  <AppLogo size={24} />
                 </Link>
               </div>
               <div className="flex items-center space-x-3 ml-auto">

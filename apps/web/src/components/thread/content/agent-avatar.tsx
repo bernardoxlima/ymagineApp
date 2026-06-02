@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { AppLogo } from '@/components/sidebar/app-logo';
 import { DynamicIcon } from 'lucide-react/dynamic';
 import { Bot } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -60,7 +60,7 @@ export const AgentAvatar: React.FC<AgentAvatarProps> = ({
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/kortix-symbol.svg"
+          src="/ymagine-symbol.svg"
           alt="Kortix"
           className="flex-shrink-0 invert dark:invert-0"
           style={{ width: `${size * 0.5}px`, height: `${size * 0.5}px` }}

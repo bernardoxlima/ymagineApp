@@ -75,7 +75,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { KortixLoader } from '@/components/ui/kortix-loader';
+import { AppLoader } from '@/components/ui/app-loader';
 import { AnimatedThinkingText } from '@/components/ui/animated-thinking-text';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -3396,7 +3396,7 @@ function SessionTurn({
         <div className="flex items-center gap-2 mt-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/kortix-logomark-white.svg"
+            src="/ymagine-logomark-white.svg"
             alt="Kortix"
             className="dark:invert-0 invert flex-shrink-0 h-[14px] w-auto"
           />
@@ -3678,7 +3678,7 @@ function SessionTurn({
           <div className="flex items-center gap-2 mt-3 mb-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/kortix-logomark-white.svg"
+              src="/ymagine-logomark-white.svg"
               alt="Kortix"
               className="dark:invert-0 invert flex-shrink-0 h-[14px] w-auto"
             />
@@ -5940,7 +5940,7 @@ export function SessionChat({
       {/* Content area — loading, not-found, or actual messages */}
       {isDataLoading ? (
         <div className="flex-1 flex items-center justify-center min-h-0">
-          <KortixLoader size="small" />
+          <AppLoader size="small" />
         </div>
       ) : isNotFound ? (
         <div className="flex-1 flex flex-col items-center justify-center min-h-0 gap-3 text-center px-6">
@@ -6045,7 +6045,7 @@ export function SessionChat({
                     <div className="flex items-center gap-3">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src="/kortix-logomark-white.svg"
+                        src="/ymagine-logomark-white.svg"
                         alt="Kortix"
                         className="dark:invert-0 invert flex-shrink-0 h-[14px] w-auto"
                       />
@@ -6073,7 +6073,7 @@ export function SessionChat({
                     <div className="flex items-center gap-3">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src="/kortix-logomark-white.svg"
+                        src="/ymagine-logomark-white.svg"
                         alt="Kortix"
                         className="dark:invert-0 invert flex-shrink-0 h-[14px] w-auto"
                       />
@@ -6152,7 +6152,7 @@ export function SessionChat({
                   <div className="flex items-center gap-3">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src="/kortix-logomark-white.svg"
+                      src="/ymagine-logomark-white.svg"
                       alt="Kortix"
                       className="dark:invert-0 invert flex-shrink-0 h-[14px] w-auto"
                     />

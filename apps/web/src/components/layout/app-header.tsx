@@ -4,7 +4,7 @@
  * AppHeader — the canonical top bar used outside the (dashboard) shell.
  *
  * Layout:
- *  - LEFT:  KortixLogo + optional `leading` slot (e.g. a back button).
+ *  - LEFT:  AppLogo + optional `leading` slot (e.g. a back button).
  *  - RIGHT: optional `actions` slot + UserMenu (avatar + dropdown).
  *
  * The user menu is ALWAYS on the right — never on the left — for consistency
@@ -25,7 +25,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
 import { ArrowLeftRight, ChevronDown, LogOut, Settings } from 'lucide-react';
 
-import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { AppLogo } from '@/components/sidebar/app-logo';
 import { UserSettingsModal } from '@/components/settings/user-settings-modal';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -89,7 +89,7 @@ export function AppHeader({
             variant === 'overlay' && 'pointer-events-auto',
           )}
         >
-          <KortixLogo size={20} />
+          <AppLogo size={20} />
           {leading}
         </div>
         <div

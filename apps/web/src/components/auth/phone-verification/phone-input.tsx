@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Phone } from "lucide-react";
-import { KortixLoader } from '@/components/ui/kortix-loader';
+import { AppLoader } from '@/components/ui/app-loader';
 import { PhoneInput as PhoneInputComponent } from "@/components/ui/phone-input";
 
 function getUserCountryCode(): string {
@@ -154,7 +154,7 @@ export function PhoneInput({ onSubmit, isLoading = false, error = null }: PhoneI
           >
             {isLoading ? (
               <>
-                <KortixLoader size="small" className="mr-2" />
+                <AppLoader size="small" className="mr-2" />
                 {t('sendingCode')}
               </>
             ) : (

@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils';
 import React, { useState, useRef, useEffect, memo } from 'react';
 import { Mic, Square } from 'lucide-react';
-import { KortixLoader } from '@/components/ui/kortix-loader';
+import { AppLoader } from '@/components/ui/app-loader';
 import { Button } from '@/components/ui/button';
 import {
     Tooltip,
@@ -150,7 +150,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = memo(function VoiceRe
             case 'recording':
                 return <Square className="h-4 w-4" />;
             case 'processing':
-                return <KortixLoader size="small" />;
+                return <AppLoader size="small" />;
             default:
                 return <Mic className="h-4 w-4" />;
         }

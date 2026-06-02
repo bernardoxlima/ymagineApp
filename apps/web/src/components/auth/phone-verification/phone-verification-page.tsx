@@ -19,9 +19,9 @@ import { clearUserLocalStorage } from '@/lib/utils/clear-local-storage';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { LogOut, Shield } from 'lucide-react';
-import { KortixLoader } from '@/components/ui/kortix-loader';
+import { AppLoader } from '@/components/ui/app-loader';
 import { useMutation } from '@tanstack/react-query';
-import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { AppLogo } from '@/components/sidebar/app-logo';
 
 const AnimatedBg = lazy(() => import('@/components/ui/animated-bg').then(mod => ({ default: mod.AnimatedBg })));
 
@@ -249,7 +249,7 @@ export function PhoneVerificationPage({
 
       <div className="absolute top-6 left-6 z-10">
         <Link href="/" className="flex items-center space-x-2">
-          <KortixLogo size={28} />
+          <AppLogo size={28} />
         </Link>
       </div>
 
@@ -262,7 +262,7 @@ export function PhoneVerificationPage({
           className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
         >
           {signOutMutation.isPending ? (
-            <KortixLoader size="small" />
+            <AppLoader size="small" />
           ) : (
             <LogOut className="h-4 w-4" />
           )}

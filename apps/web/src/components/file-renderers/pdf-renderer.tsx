@@ -11,7 +11,7 @@ import {
   ZoomIn,
   ZoomOut,
 } from 'lucide-react';
-import { KortixLoader } from '@/components/ui/kortix-loader';
+import { AppLoader } from '@/components/ui/app-loader';
 
 // Import styles for annotations and text layer
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -234,7 +234,7 @@ export function PdfRenderer({ url, blob, className, compact = false }: PdfRender
             file={pdfFile} 
             loading={
               <div className="flex items-center justify-center h-40">
-                <KortixLoader size="medium" />
+                <AppLoader size="medium" />
               </div>
             }
             error={
@@ -286,7 +286,7 @@ export function PdfRenderer({ url, blob, className, compact = false }: PdfRender
               onLoadError={onDocumentLoadError}
               loading={
                 <div className="flex flex-col items-center justify-center h-64 gap-3">
-                  <KortixLoader size="medium" />
+                  <AppLoader size="medium" />
                   <p className="text-sm text-muted-foreground">Loading PDF...</p>
                 </div>
               }
@@ -299,7 +299,7 @@ export function PdfRenderer({ url, blob, className, compact = false }: PdfRender
                 renderAnnotationLayer={true}
                 loading={
                   <div className="flex items-center justify-center h-64">
-                    <KortixLoader size="medium" />
+                    <AppLoader size="medium" />
                   </div>
                 }
                 className="shadow-lg rounded-lg overflow-hidden bg-white"

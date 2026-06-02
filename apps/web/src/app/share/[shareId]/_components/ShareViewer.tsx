@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { getEnv } from '@/lib/env-config';
 import { UnifiedMarkdown } from '@/components/markdown/unified-markdown';
-import { KortixLoader } from '@/components/ui/kortix-loader';
+import { AppLoader } from '@/components/ui/app-loader';
 import {
   AlertTriangle,
   Copy,
@@ -142,7 +142,7 @@ export function ShareViewer({ shareId }: { shareId: string }) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
-          <KortixLoader size="medium" />
+          <AppLoader size="medium" />
           <p className="text-sm text-muted-foreground">Loading shared session...</p>
         </div>
       </div>
@@ -308,7 +308,7 @@ function AssistantBlock({
       <div className="flex items-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/kortix-logomark-white.svg"
+          src="/ymagine-logomark-white.svg"
           alt="Kortix"
           className="dark:invert-0 invert flex-shrink-0"
           style={{ height: '12px', width: 'auto' }}
