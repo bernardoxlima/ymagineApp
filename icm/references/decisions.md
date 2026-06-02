@@ -462,46 +462,9 @@ impossible (Denis chose code-only / keep-Boston / no stale cache).
 
 Lesson → [[claude-failure-modes]] §16. [[D-022]] [[D-023]]
 
-## D-026 · Pentest blackbox 2026-06-02 — security baseline and remediation
-
-**Context.** First blackbox pentest of ymagine.app (2026-06-02). 87 findings across 9 dimensions
-(7 agents, ~342k tokens). 2 critical, 9 high, 15 medium, 26 low, 35 info.
-
-**Critical findings closed (PRs #36, #37):**
-1. **Billing RPCs callable by PUBLIC** — 5 `atomic_*` RPCs had `EXECUTE` granted to `PUBLIC`
-   (PostgreSQL default). Any visitor could call `atomic_daily_credit_refresh` via PostgREST.
-   Fixed: `REVOKE EXECUTE … FROM PUBLIC, anon, authenticated` + re-grant to `service_role` only.
-   Required 2-pass fix (§17, §18): first migration only revoked from named roles, not PUBLIC.
-2. **billing_disabled API flag bypassable** — PostgREST bypassed the Hono API-layer flag.
-   Fixed: same REVOKE — the DB-level permission is the real gate.
-
-**High findings closed (PRs #36, #38, #39, VPS config):**
-- `supabase.ymagine.app` open to internet: PGRST schema disabled (`PGRST_OPENAPI_MODE=disabled`),
-  signup disabled (`GOTRUE_DISABLE_SIGNUP=true`). Cloudflare Access not yet configured (deferred).
-- API `/health` leaked version, env, tunnel state → stripped to `{status, timestamp}`.
-- `/version/all` + `/version/changelog` public → auth-gated.
-- CSP was `frame-ancestors` only → full policy with `connect-src`, `object-src none`, `base-uri`.
-- Open signup + no rate limit → signup disabled on GoTrue.
-
-**OPSEC (PRs #38, #39, #40):**
-- `window.__KORTIX_RUNTIME_CONFIG` → `window.__YMAGINE_RUNTIME_CONFIG`
-- Cookie `sb-kortix-auth-token` → `sb-ymagine-auth-token` (forced re-login on deploy)
-- CSP `*.kortix.cloud` removed (JustAVPS not in use)
-- API CORS narrowed to `ymagine.app` only
-- All public assets, components, OG tags, metadata rebranded to Ymagine
-- Auth page default changed from magic link to email+password (`isPasswordMode` logic inverted)
-
-**Still open (infra-only):**
-- Cloudflare Access on `supabase.ymagine.app` (most impactful remaining item)
-- Rate limiting on `/auth/v1/*` in Cloudflare
-- Cookie `sb-kortix-auth-token` project-ref in GoTrue (requires planned maintenance)
-
-**Decision.** Pentest report → `pentest/ymagine.app_20260602-112859/PENTEST-REPORT.md` (gitignored).
-RTT gain measurement → `icm/output/perf/rtt-gain-2026-06-02.md`. Lessons → [[claude-failure-modes]] §17 §18.
-
 ## D-027 · PostgreSQL REVOKE pattern — always FROM PUBLIC, verified on prod DB
 
-**Context.** See D-026 and [[claude-failure-modes]] §17 §18.
+**Context.** [[claude-failure-modes]] §17 §18.
 
 **Decision.**
 1. **REVOKE EXECUTE migrations must always include `FROM PUBLIC`** — named-role revoke is a
