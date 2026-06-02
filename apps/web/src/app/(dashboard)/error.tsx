@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { RotateCcw, Home, Copy, Check, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { AppLogo } from '@/components/sidebar/app-logo';
 import { cn } from '@/lib/utils';
 import * as Sentry from '@sentry/nextjs';
 
@@ -77,7 +77,7 @@ export default function DashboardError({
         className="relative z-10 flex w-full max-w-md flex-col items-center gap-8"
       >
         {/* Logo */}
-        <KortixLogo size={28} />
+        <AppLogo size={28} />
 
         {/* Glitched error indicator */}
         <div className="relative select-none">

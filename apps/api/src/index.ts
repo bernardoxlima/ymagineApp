@@ -58,15 +58,8 @@ const app = new Hono();
 
 // CORS origins: production domains + localhost for local dev + any extras from env.
 const cloudOrigins = [
-  'https://www.kortix.com',
-  'https://kortix.com',
-  'https://dev.kortix.com',
-  'https://new-dev.kortix.com',
-  'https://dev-new.kortix.com',
-  'https://staging.kortix.com',
-  'https://kortix.cloud',
-  'https://www.kortix.cloud',
-  'https://new.kortix.com',
+  'https://ymagine.app',
+  'https://www.ymagine.app',
 ];
 const justavpsOrigins = [
   'https://justavps.com',

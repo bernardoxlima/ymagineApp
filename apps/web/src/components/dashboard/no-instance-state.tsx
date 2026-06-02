@@ -40,7 +40,7 @@ function ComputerHero({
     <div className="rounded-2xl border border-border/50 bg-gradient-to-b from-background to-muted/20 px-8 py-12 flex flex-col items-center text-center gap-6">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/kortix-computer.png"
+        src="/ymagine-computer.png"
         alt="Kortix Computer"
         className="h-40 w-40 object-contain select-none pointer-events-none"
         draggable={false}

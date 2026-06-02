@@ -22,7 +22,7 @@ import { useWebNotifications } from "@/hooks/use-web-notifications";
 import { backendApi } from "@/lib/api-client";
 import { getClient } from "@/lib/opencode-sdk";
 import { Button } from "@/components/ui/button";
-import { KortixLoader } from "@/components/ui/kortix-loader";
+import { AppLoader } from "@/components/ui/app-loader";
 import { featureFlags } from "@/lib/feature-flags";
 import { buildInstancePath, getActiveInstanceIdFromCookie, getCurrentInstanceIdFromPathname, normalizeAppPathname, setActiveInstanceCookie } from "@/lib/instance-routes";
 import { cn } from "@/lib/utils";
@@ -1086,7 +1086,7 @@ export default function DashboardLayoutContent({
 						{ob.active && !ob.sessionId && !ob.showBoot && !ob.showSetup && (
 							<div className="absolute inset-0 z-10 flex items-center justify-center bg-background">
 								<div className="flex flex-col items-center gap-3">
-									<KortixLoader size="medium" />
+									<AppLoader size="medium" />
 									<p className="text-xs text-muted-foreground">Setting up your workspace…</p>
 								</div>
 							</div>

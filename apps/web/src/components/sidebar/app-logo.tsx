@@ -2,13 +2,13 @@
 
 import { cn } from '@/lib/utils';
 
-interface KortixLogoProps {
+interface AppLogoProps {
   size?: number;
   variant?: 'symbol' | 'logomark';
   className?: string;
 }
 
-export function KortixLogo({ size = 24, variant = 'symbol', className }: KortixLogoProps) {
+export function AppLogo({ size = 24, variant = 'symbol', className }: AppLogoProps) {
   // For logomark variant, use logomark-white.svg which is already white
   // and invert it for light mode using CSS (no JS needed)
   if (variant === 'logomark') {
@@ -28,7 +28,7 @@ export function KortixLogo({ size = 24, variant = 'symbol', className }: KortixL
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src="/kortix-symbol.svg"
+      src="/ymagine-symbol.svg"
       alt="Kortix"
       className={cn('dark:invert flex-shrink-0', className)}
       style={{ width: `${size}px`, height: `${size}px` }}

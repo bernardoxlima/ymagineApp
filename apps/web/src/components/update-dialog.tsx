@@ -19,7 +19,7 @@ import { useServerStore } from '@/stores/server-store';
 import { getEnv } from '@/lib/env-config';
 import type { UpdatePhase } from '@/hooks/platform/use-sandbox-update';
 import type { ChangelogEntry } from '@/lib/platform-client';
-import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { AppLogo } from '@/components/sidebar/app-logo';
 import { UpdateChangelogPreview } from '@/components/update-changelog-preview';
 
 type DialogStep = 'confirm' | 'updating' | 'done' | 'failed';
@@ -215,7 +215,7 @@ export function UpdateDialog({
               transition={{ duration: 0.4 }}
               className="flex flex-col items-center"
             >
-              <KortixLogo size={28} variant="symbol" />
+              <AppLogo size={28} variant="symbol" />
               <p className="mt-5 text-[13px] font-medium text-foreground/90 tracking-tight">
                 {activeLabel}
               </p>

@@ -24,7 +24,7 @@ import {
   Frame,
   Palette,
 } from 'lucide-react';
-import { KortixLoader } from '@/components/ui/kortix-loader';
+import { AppLoader } from '@/components/ui/app-loader';
 import { getEnv } from '@/lib/env-config';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -1526,7 +1526,7 @@ function FloatingToolbar({
                   Cancel
                 </Button>
                 <Button onClick={applyTextReplacement} disabled={!newTextContent.trim() || isProcessing}>
-                  {isProcessing ? <KortixLoader size="small" className="mr-2" /> : null}
+                  {isProcessing ? <AppLoader size="small" className="mr-2" /> : null}
                   {isLowQualityOcr ? 'Apply' : 'Replace'}
                 </Button>
               </div>
@@ -1567,7 +1567,7 @@ function FloatingToolbar({
             onClick={applyCrop}
             disabled={isCropping}
           >
-            {isCropping ? <KortixLoader size="small" className="mr-1" /> : null}
+            {isCropping ? <AppLoader size="small" className="mr-1" /> : null}
             Create
           </Button>
         </div>
@@ -1605,7 +1605,7 @@ function FloatingToolbar({
                 disabled={isProcessing}
               >
                 {activeAction === 'upscale' ? (
-                  <KortixLoader size="small" />
+                  <AppLoader size="small" />
                 ) : (
                   <span className="text-[10px] font-semibold border border-current rounded px-0.5">HD</span>
                 )}
@@ -1626,7 +1626,7 @@ function FloatingToolbar({
                 disabled={isProcessing}
               >
                 {activeAction === 'remove_bg' ? (
-                  <KortixLoader size="small" />
+                  <AppLoader size="small" />
                 ) : (
                   <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
                     <rect x="1" y="1" width="6" height="6" />
@@ -1651,7 +1651,7 @@ function FloatingToolbar({
                 onClick={startTextEditMode}
                 disabled={isProcessing || textEditMode}
               >
-                {isDetectingText ? <KortixLoader size="small" /> : <Type className="h-3.5 w-3.5" />}
+                {isDetectingText ? <AppLoader size="small" /> : <Type className="h-3.5 w-3.5" />}
                 Edit text
               </Button>
             </TooltipTrigger>
@@ -1687,7 +1687,7 @@ function FloatingToolbar({
                     disabled={isProcessing}
                   >
                     {activeAction === 'mark_edit' ? (
-                      <KortixLoader size="small" />
+                      <AppLoader size="small" />
                     ) : (
                       <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
                         <rect x="2" y="2" width="12" height="12" strokeDasharray="3 2" rx="1" />
@@ -1722,7 +1722,7 @@ function FloatingToolbar({
                 >
                   {isProcessing ? (
                     <>
-                      <KortixLoader size="small" className="mr-2" />
+                      <AppLoader size="small" className="mr-2" />
                       Generating...
                     </>
                   ) : (
@@ -2086,7 +2086,7 @@ function FrameFloatingToolbar({
                 onClick={onExportFrame}
                 disabled={isExporting}
               >
-                {isExporting ? <KortixLoader size="small" /> : <Download className="h-3.5 w-3.5" />}
+                {isExporting ? <AppLoader size="small" /> : <Download className="h-3.5 w-3.5" />}
                 Export
               </Button>
             </TooltipTrigger>
@@ -2277,7 +2277,7 @@ function MultiSelectToolbar({
                 onClick={openMergeDialog}
               >
                 {isProcessing ? (
-                  <KortixLoader size="small" />
+                  <AppLoader size="small" />
                 ) : (
                   <Layers className="h-3.5 w-3.5" />
                 )}
@@ -2377,7 +2377,7 @@ function MultiSelectToolbar({
                 onClick={() => { setShowMergeDialog(false); handleMerge(); }}
                 disabled={!mergePrompt.trim() || isProcessing}
               >
-                {isProcessing ? <KortixLoader size="small" className="mr-2" /> : null}
+                {isProcessing ? <AppLoader size="small" className="mr-2" /> : null}
                 Create
               </Button>
             </div>
@@ -3313,7 +3313,7 @@ export function CanvasRenderer({ content, filePath, fileName, sandboxId, classNa
   };
 
   if (!isMounted) {
-    return <div className="flex items-center justify-center h-full w-full bg-card"><KortixLoader size="medium" /></div>;
+    return <div className="flex items-center justify-center h-full w-full bg-card"><AppLoader size="medium" /></div>;
   }
 
   // If no content AND no canvasData yet, show loading state
@@ -3321,7 +3321,7 @@ export function CanvasRenderer({ content, filePath, fileName, sandboxId, classNa
   if (!content && !canvasData) {
     return (
       <div className="flex flex-col items-center justify-center h-full w-full gap-4 bg-background">
-        <KortixLoader size="medium" />
+        <AppLoader size="medium" />
         <div className="text-muted-foreground text-center text-sm">
           Loading canvas...
         </div>
@@ -3359,7 +3359,7 @@ export function CanvasRenderer({ content, filePath, fileName, sandboxId, classNa
             </div>
 
             <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleResetView}><Maximize className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Reset View</TooltipContent></Tooltip>
-            <Tooltip><TooltipTrigger asChild><Button id="canvas-save-btn" variant="ghost" size="icon" className={cn("h-8 w-8 relative", hasUnsavedChanges && "text-primary")} onClick={handleSave} disabled={isSaving || !onSave}>{isSaving ? <KortixLoader size="small" /> : <Save className="h-4 w-4" />}{hasUnsavedChanges && <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-primary rounded-full" />}</Button></TooltipTrigger><TooltipContent>{isSaving ? 'Saving...' : hasUnsavedChanges ? 'Save changes (⌘S)' : 'No changes'}</TooltipContent></Tooltip>
+            <Tooltip><TooltipTrigger asChild><Button id="canvas-save-btn" variant="ghost" size="icon" className={cn("h-8 w-8 relative", hasUnsavedChanges && "text-primary")} onClick={handleSave} disabled={isSaving || !onSave}>{isSaving ? <AppLoader size="small" /> : <Save className="h-4 w-4" />}{hasUnsavedChanges && <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-primary rounded-full" />}</Button></TooltipTrigger><TooltipContent>{isSaving ? 'Saving...' : hasUnsavedChanges ? 'Save changes (⌘S)' : 'No changes'}</TooltipContent></Tooltip>
             <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleUploadClick}><ImagePlus className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Add Image</TooltipContent></Tooltip>
             {/* Add Frame with presets */}
             <Popover>
@@ -3436,7 +3436,7 @@ export function CanvasRenderer({ content, filePath, fileName, sandboxId, classNa
                   >
                     {isGenerating ? (
                       <>
-                        <KortixLoader size="small" className="mr-2" />
+                        <AppLoader size="small" className="mr-2" />
                         Generating...
                       </>
                     ) : (

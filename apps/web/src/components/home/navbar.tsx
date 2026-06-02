@@ -9,7 +9,7 @@ import Link from 'next/link';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { useRouter, usePathname } from 'next/navigation';
-import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { AppLogo } from '@/components/sidebar/app-logo';
 import { useTranslations } from 'next-intl';
 import { trackCtaSignup } from '@/lib/analytics/gtm';
 import { AppDownloadQR } from '@/components/common/app-download-qr';
@@ -210,7 +210,7 @@ export function Navbar({ isAbsolute = false }: NavbarProps) {
         <ContextMenu>
           <ContextMenuTrigger asChild>
             <Link href="/" className="flex items-center shrink-0">
-              <KortixLogo size={18} variant='logomark' />
+              <AppLogo size={18} variant='logomark' />
             </Link>
           </ContextMenuTrigger>
           <ContextMenuContent className="w-48">
@@ -221,10 +221,10 @@ export function Navbar({ isAbsolute = false }: NavbarProps) {
               </ContextMenuSubTrigger>
               <ContextMenuSubContent className="w-40">
                 {[
-                  { label: 'Black · SVG', href: '/brandkit/Logo/Brandmark/SVG/Brandmark Black.svg', file: 'kortix-symbol-black.svg' },
-                  { label: 'Black · PNG', href: '/brandkit/Logo/Brandmark/PNG/Brandmark Black.png', file: 'kortix-symbol-black.png' },
-                  { label: 'White · SVG', href: '/brandkit/Logo/Brandmark/SVG/Brandmark White.svg', file: 'kortix-symbol-white.svg' },
-                  { label: 'White · PNG', href: '/brandkit/Logo/Brandmark/PNG/Brandmark White.png', file: 'kortix-symbol-white.png' },
+                  { label: 'Black · SVG', href: '/brandkit/Logo/Brandmark/SVG/Brandmark Black.svg', file: 'ymagine-symbol-black.svg' },
+                  { label: 'Black · PNG', href: '/brandkit/Logo/Brandmark/PNG/Brandmark Black.png', file: 'ymagine-symbol-black.png' },
+                  { label: 'White · SVG', href: '/brandkit/Logo/Brandmark/SVG/Brandmark White.svg', file: 'ymagine-symbol-white.svg' },
+                  { label: 'White · PNG', href: '/brandkit/Logo/Brandmark/PNG/Brandmark White.png', file: 'ymagine-symbol-white.png' },
                 ].map((d) => (
                   <ContextMenuItem key={d.file} onClick={() => { const a = document.createElement('a'); a.href = d.href; a.download = d.file; a.click(); }} className="text-[13px] cursor-pointer">
                     {d.label}
@@ -340,7 +340,7 @@ export function Navbar({ isAbsolute = false }: NavbarProps) {
             {/* Header - matches navbar positioning */}
             <div className="flex h-[56px] items-center justify-between px-6 py-2">
               <Link href="/" className="flex items-center gap-3" onClick={() => setIsDrawerOpen(false)}>
-                <KortixLogo size={18} variant='logomark' />
+                <AppLogo size={18} variant='logomark' />
               </Link>
               <Button
                 onClick={toggleDrawer}

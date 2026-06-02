@@ -94,10 +94,7 @@ const nextConfig = (): NextConfig => ({
       'https://supabase.ymagine.app',
       'wss://supabase.ymagine.app',
       'https://api.ymagine.app',
-      // Tunnel infrastructure — sandbox port-forwarding opens browser connections
-      // to *.kortix.cloud subdomains (cf. config.ts KORTIX_TUNNEL_AGENT_HOST).
-      'https://*.kortix.cloud',
-      'wss://*.kortix.cloud',
+      // JustAVPS / remote sandbox providers removed — only local_docker on the VPS.
     ].join(' ');
 
     // script-src: Next.js 15 requires 'unsafe-inline' for hydration scripts and

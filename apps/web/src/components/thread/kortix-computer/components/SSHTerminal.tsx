@@ -8,7 +8,7 @@ import type { Terminal as XTerm, ITheme } from '@xterm/xterm';
 import type { FitAddon } from '@xterm/addon-fit';
 import { useAuth } from '@/components/AuthProvider';
 import { RefreshCw, Copy, Check, TerminalSquare } from 'lucide-react';
-import { KortixLoader } from '@/components/ui/kortix-loader';
+import { AppLoader } from '@/components/ui/app-loader';
 import { toast } from '@/lib/toast';
 import { getEnv } from '@/lib/env-config';
 import { backendApi } from '@/lib/api-client';

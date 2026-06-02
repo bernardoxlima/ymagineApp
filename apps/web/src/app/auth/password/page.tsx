@@ -6,14 +6,14 @@ import { useSearchParams } from 'next/navigation';
 import { useState, useEffect, Suspense } from 'react';
 import { ConnectingScreen } from '@/components/dashboard/connecting-screen';
 import { AlertCircle, ArrowLeft, Lock } from 'lucide-react';
-import { KortixLoader } from '@/components/ui/kortix-loader';
+import { AppLoader } from '@/components/ui/app-loader';
 import { toast } from '@/lib/toast';
 
 import { Input } from '@/components/ui/input';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { signInWithPassword, signUpWithPassword } from '../actions';
 import { useAuth } from '@/components/AuthProvider';
-import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { AppLogo } from '@/components/sidebar/app-logo';
 import { cn } from '@/lib/utils';
 import { sanitizeAuthReturnUrl } from '@/lib/auth/return-url';
 
@@ -79,7 +79,7 @@ function PasswordAuthContent() {
             <div className="relative z-10 pt-24 pb-8 max-w-md mx-auto h-full w-full flex flex-col gap-2 items-center justify-center">
               <div className="absolute top-6 left-6 z-10">
                 <Link href="/" className="flex items-center space-x-2">
-                  <KortixLogo size={28} />
+                  <AppLogo size={28} />
                 </Link>
               </div>
 
