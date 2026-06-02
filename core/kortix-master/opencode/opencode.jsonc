@@ -15,6 +15,17 @@
     "plan": { "disable": true },
     "explore": { "disable": true }
   },
+  // All four providers declared EXPLICITLY so listing is deterministic — each
+  // lists via its env key (run-opencode-serve.sh now exports all four incl.
+  // GOOGLE_API_KEY). opencode SYNTHESIZES correct per-model effort variants for
+  // anthropic / openai / google / openrouter-gpt-claude-gemini3 models
+  // (ProviderTransform.variants in transform.ts) — so we do NOT hand-add variants
+  // for those (an unsupported effort key would 400). The ONLY model needing
+  // hand-added variants is x-ai/grok-4.20 (transform returns {} for
+  // non-gpt/claude/gemini-3 reasoning models); OpenRouter's payload shape is
+  // { reasoning: { effort } }. npm names verified against live /config/providers
+  // (api.npm). Adding provider blocks does NOT drop other providers (no allowlist
+  // rule in opencode v1.14.28 — verified). See [[decisions]] D-026.
   "provider": {
     "anthropic": {
       "npm": "@ai-sdk/anthropic",
@@ -27,6 +38,37 @@
           "name": "Claude Sonnet 4.6",
           "id": "claude-sonnet-4-6",
           "family": "anthropic"
+        }
+      }
+    },
+    "openai": {
+      "npm": "@ai-sdk/openai",
+      "env": ["OPENAI_API_KEY"],
+      "options": {
+        "apiKey": "{env:OPENAI_API_KEY}"
+      }
+    },
+    "google": {
+      "npm": "@ai-sdk/google",
+      "env": ["GOOGLE_API_KEY"],
+      "options": {
+        "apiKey": "{env:GOOGLE_API_KEY}"
+      }
+    },
+    "openrouter": {
+      "npm": "@openrouter/ai-sdk-provider",
+      "env": ["OPENROUTER_API_KEY"],
+      "options": {
+        "apiKey": "{env:OPENROUTER_API_KEY}"
+      },
+      "models": {
+        "x-ai/grok-4.20": {
+          "id": "x-ai/grok-4.20",
+          "variants": {
+            "low": { "reasoning": { "effort": "low" } },
+            "medium": { "reasoning": { "effort": "medium" } },
+            "high": { "reasoning": { "effort": "high" } }
+          }
         }
       }
     }
