@@ -29,28 +29,6 @@
           "family": "anthropic"
         }
       }
-    },
-    // OpenRouter is auto-loaded from models.dev (OPENROUTER_API_KEY) — this block
-    // does NOT redefine the provider, it ONLY augments x-ai/grok-4.20 with
-    // reasoning-effort variants. models.dev ships Grok WITHOUT variants (verified:
-    // x-ai/grok-4.20 has capabilities.reasoning:true but variants:{}), so the chat
-    // input's effort selector never appears for Grok. xAI's API supports
-    // reasoning.effort = low/medium/high/xhigh (reasoning OFF by default → the
-    // picker's "Default" = off). User config MERGES with the models.dev baseline
-    // (variants merged, not replaced — opencode.ai/docs/models), so the other
-    // ~442 OpenRouter models are untouched. Config uses `reasoningEffort` (the
-    // documented input form); OpenCode resolves it to the provider reasoning param.
-    "openrouter": {
-      "models": {
-        "x-ai/grok-4.20": {
-          "variants": {
-            "low": { "reasoningEffort": "low" },
-            "medium": { "reasoningEffort": "medium" },
-            "high": { "reasoningEffort": "high" },
-            "xhigh": { "reasoningEffort": "xhigh" }
-          }
-        }
-      }
     }
   },
   "plugin": [
