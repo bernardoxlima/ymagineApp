@@ -1,15 +1,20 @@
-# Kortix Robots.txt
 User-agent: *
 Allow: /
 
-# Sitemap
-Sitemap: https://kortix.com/sitemap.xml
+Sitemap: https://ymagine.app/sitemap.xml
 
-# Disallow sensitive routes
 Disallow: /api/
 Disallow: /_next/
 Disallow: /admin/
 
-# Allow crawling of public pages
-Allow: /suna/
+User-agent: GPTBot
+Disallow: /
 
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: Google-Extended
+Disallow: /

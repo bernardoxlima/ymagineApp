@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { config } from '../../config';
+import { supabaseAuth } from '../../middleware/auth';
 
 /**
  * Sandbox version + changelog endpoints.
@@ -296,7 +297,10 @@ versionRouter.get('/latest', async (c) => {
 /**
  * GET /v1/platform/sandbox/version/all
  * Returns all installable versions (stable from GitHub Releases + dev from Docker Hub).
+ * Auth-gated: exposes full upstream changelog with GitHub PR links — useful for
+ * targeted recon against known-unpatched upstream commits.
  */
+versionRouter.use('/all', supabaseAuth);
 versionRouter.get('/all', async (c) => {
   const versions = await getAllVersions();
   const runningVersion = getRunningVersion();
@@ -314,7 +318,9 @@ versionRouter.get('/all', async (c) => {
  * GET /v1/platform/sandbox/version/changelog
  * Returns a unified changelog (stable releases + dev commits merged).
  * Query: ?channel=all (default) | stable | dev
+ * Auth-gated: same reason as /all.
  */
+versionRouter.use('/changelog', supabaseAuth);
 versionRouter.get('/changelog', async (c) => {
   const channel = c.req.query('channel') || 'all';
   const entries: any[] = [];

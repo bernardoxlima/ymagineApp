@@ -86,13 +86,48 @@ const nextConfig = (): NextConfig => ({
 
   // HTTP headers for security, caching and performance
   async headers() {
+    // Connect-src: browser makes direct calls to the Supabase Kong gateway and
+    // the Hono backend. PostHog/Sentry/BetterStack are proxied through Next.js
+    // rewrites so they only need 'self'. Supabase Realtime uses wss://.
+    const CSP_CONNECT_SRC = [
+      "'self'",
+      'https://supabase.ymagine.app',
+      'wss://supabase.ymagine.app',
+      'https://api.ymagine.app',
+      // Tunnel infrastructure — sandbox port-forwarding opens browser connections
+      // to *.kortix.cloud subdomains (cf. config.ts KORTIX_TUNNEL_AGENT_HOST).
+      'https://*.kortix.cloud',
+      'wss://*.kortix.cloud',
+    ].join(' ');
+
+    // script-src: Next.js 15 requires 'unsafe-inline' for hydration scripts and
+    // dangerouslySetInnerHTML JSON-LD blocks; 'unsafe-eval' for some dynamic
+    // imports. Both are unavoidable without per-request nonces (future work).
+    // The meaningful gains here are object-src none, base-uri self, and
+    // connect-src restricting data exfiltration to known origins.
+    const CSP = [
+      "default-src 'none'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      "style-src 'self' 'unsafe-inline'",
+      `connect-src ${CSP_CONNECT_SRC}`,
+      "img-src 'self' data: blob: https:",
+      "font-src 'self' data:",
+      "media-src 'self' blob:",
+      "worker-src 'self' blob:",
+      "manifest-src 'self'",
+      "frame-src 'self'",
+      "frame-ancestors 'self'",
+      "object-src 'none'",
+      "base-uri 'self'",
+    ].join('; ');
+
     return [
       {
         source: '/:path*',
         headers: [
           {
             key: 'Content-Security-Policy',
-            value: "frame-ancestors 'self';",
+            value: CSP,
           },
           {
             key: 'X-Frame-Options',
