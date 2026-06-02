@@ -119,6 +119,7 @@ const SessionRow = memo(function SessionRow({
   return (
     <Link
       href={`/sessions/${session.id}`}
+      prefetch={false}
       onClick={(e) => onClick(e, session.id)}
       className="block"
     >

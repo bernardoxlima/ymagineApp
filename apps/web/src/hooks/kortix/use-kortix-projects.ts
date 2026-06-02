@@ -77,6 +77,7 @@ export function useKortixProjects(_args?: undefined, options: KortixProjectQuery
 
 export function useKortixProject(id: string) {
   const { user, isLoading: isAuthLoading } = useAuth();
+  const queryClient = useQueryClient();
   const serverVersion = useServerStore((s) => s.serverVersion);
   const serverUrl = useServerStore((s) => s.getActiveServerUrl());
   return useQuery<KortixProject>({
@@ -86,9 +87,22 @@ export function useKortixProject(id: string) {
     staleTime: 15_000,
     gcTime: 5 * 60 * 1000,
     retry: 2,
-    // Keep previous data while a new query (e.g. from a serverVersion bump
-    // when another tab closes) is loading. Prevents the skeleton flash.
-    placeholderData: keepPreviousData,
+    placeholderData: (prev) => {
+      // Preserve the prior keepPreviousData behavior across serverVersion bumps
+      // (e.g. another tab closes) to avoid a skeleton flash.
+      if (prev) return prev;
+      // Otherwise seed the breadcrumb name instantly from the already-cached
+      // projects LIST (warmed by the sidebar) so /tasks/[id] paints without a
+      // stacked ~141ms round-trip. The mounted query still fetches & replaces,
+      // so nothing goes stale.
+      const list = queryClient.getQueryData<KortixProject[]>([
+        ...kortixKeys.projects(),
+        user?.id ?? 'anonymous',
+        serverUrl,
+        serverVersion,
+      ]);
+      return list?.find((p) => p.id === id);
+    },
   });
 }
 

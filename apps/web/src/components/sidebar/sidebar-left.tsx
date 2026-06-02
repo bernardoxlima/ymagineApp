@@ -87,7 +87,7 @@ import { openTabAndNavigate } from '@/stores/tab-store';
 import { useServerStore } from '@/stores/server-store';
 import { useOpenCodePendingStore } from '@/stores/opencode-pending-store';
 import { buildInstancePath, getCurrentInstanceIdFromPathname, getActiveInstanceIdFromCookie, normalizeAppPathname } from '@/lib/instance-routes';
-import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/components/AuthProvider';
 import { useSandbox } from '@/hooks/platform/use-sandbox';
 import { getSandboxUrl, reactivateSandbox, listSandboxes, type SandboxInfo } from '@/lib/platform-client';
 import { authenticatedFetch } from '@/lib/auth-token';
@@ -1262,29 +1262,20 @@ export function SidebarLeft({ ...props }: React.ComponentProps<typeof Sidebar>) 
   const { data: adminRoleData } = useAdminRole();
   const isAdmin = adminRoleData?.isAdmin ?? false;
 
-  const [user, setUser] = useState<{
-    name: string;
-    email: string;
-    avatar: string;
-    isAdmin?: boolean;
-  }>({ name: 'Loading...', email: '', avatar: '', isAdmin: false });
+  // Derive the profile from the in-memory AuthProvider user (kept fresh by
+  // onAuthStateChange) instead of a redundant cross-Atlantic getUser() on every
+  // authenticated sidebar mount — saves ~141ms BR↔Boston per render.
+  const { user: authUser } = useAuth();
+  const user = React.useMemo(
+    () => ({
+      name: authUser?.user_metadata?.name || authUser?.email?.split('@')[0] || 'User',
+      email: authUser?.email || '',
+      avatar: authUser?.user_metadata?.avatar_url || authUser?.user_metadata?.picture || '',
+      isAdmin,
+    }),
+    [authUser, isAdmin],
+  );
   const [isMac, setIsMac] = useState(false);
-
-  useEffect(() => {
-    const fetchUserData = async () => {
-      const supabase = createClient();
-      const { data } = await supabase.auth.getUser();
-      if (data.user) {
-        setUser({
-          name: data.user.user_metadata?.name || data.user.email?.split('@')[0] || 'User',
-          email: data.user.email || '',
-          avatar: data.user.user_metadata?.avatar_url || data.user.user_metadata?.picture || '',
-          isAdmin,
-        });
-      }
-    };
-    fetchUserData();
-  }, [isAdmin]);
 
   useEffect(() => {
     setIsMac(/Mac/.test(navigator.userAgent));
