@@ -4,9 +4,9 @@ import { Suspense, useEffect, useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import { Button } from '@/components/ui/button';
-import { KortixLoader } from '@/components/ui/kortix-loader';
+import { AppLoader } from '@/components/ui/app-loader';
 import { WallpaperBackground } from '@/components/ui/wallpaper-background';
-import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { AppLogo } from '@/components/sidebar/app-logo';
 import { Check, X, Clock, Monitor } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -21,7 +21,7 @@ export default function DeviceAuthorizePage() {
     <Suspense
       fallback={
         <div className="fixed inset-0 bg-background flex items-center justify-center">
-          <KortixLoader size="medium" />
+          <AppLoader size="medium" />
         </div>
       }
     >
@@ -99,7 +99,7 @@ function DeviceAuthorize() {
   if (authLoading || isLoading) {
     return (
       <div className="fixed inset-0 bg-background flex items-center justify-center">
-        <KortixLoader size="medium" />
+        <AppLoader size="medium" />
       </div>
     );
   }
@@ -161,7 +161,7 @@ function DeviceAuthorize() {
           <div className="bg-background/80 dark:bg-background/75 backdrop-blur-2xl border border-foreground/[0.06] rounded-[20px] px-7 py-8">
             {/* Header */}
             <div className="flex flex-col items-center gap-1 mb-6">
-              <KortixLogo size={24} />
+              <AppLogo size={24} />
               <p className="text-[11px] text-foreground/30 tracking-[0.2em] uppercase mt-3">
                 Authorize Device
               </p>
@@ -290,7 +290,7 @@ function StatusScreen({
     <div className="fixed inset-0">
       <WallpaperBackground />
       <div className="relative z-10 flex flex-col items-center justify-center h-full px-4 gap-6">
-        <KortixLogo size={28} />
+        <AppLogo size={28} />
         <div className={cn(
           'flex h-14 w-14 items-center justify-center rounded-full border',
           iconClassName || 'bg-foreground/[0.06] border-foreground/[0.08]',

@@ -4,7 +4,7 @@ import { useState, useEffect, FormEvent } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { KortixLoader } from '@/components/ui/kortix-loader';
+import { AppLoader } from '@/components/ui/app-loader';
 import { selfHostedSignIn, installOwner } from '@/app/auth/actions';
 import { resetClient } from '@/lib/opencode-sdk';
 import { invalidateTokenCache } from '@/lib/auth-token';
@@ -214,7 +214,7 @@ export function SelfHostedForm({ returnUrl, installed }: SelfHostedFormProps) {
   const [pending, setPending] = useState(false);
 
   if (installed === null) {
-    return <KortixLoader size="medium" />;
+    return <AppLoader size="medium" />;
   }
 
   const isInstaller = !installed;

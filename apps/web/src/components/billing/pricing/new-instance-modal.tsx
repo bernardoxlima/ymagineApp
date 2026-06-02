@@ -137,7 +137,7 @@ export function NewInstanceModal({ open, onOpenChange, returnUrl, title }: NewIn
 
           {/* Hero */}
           <div className="flex flex-col items-center pt-7 pb-5 px-6 border-b border-border bg-neutral-50/50 dark:bg-neutral-950/50">
-            <Image src="/kortix-computer.png" alt="Kortix Computer" width={140} height={140} className="object-contain mb-4" priority />
+            <Image src="/ymagine-computer.png" alt="Kortix Computer" width={140} height={140} className="object-contain mb-4" priority />
             <h2 className="text-xl font-semibold tracking-tight text-foreground text-center">{title || 'Your Kortix'}</h2>
             <p className="text-sm text-muted-foreground mt-1 text-center max-w-[280px]">
               One machine. All your tools. Agents that run themselves.

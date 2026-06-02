@@ -9,7 +9,7 @@ function DocsLogo() {
     <Link href="/docs" className="flex items-center gap-2.5 no-underline">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/kortix-symbol.svg"
+        src="/ymagine-symbol.svg"
         alt="Kortix"
         className="dark:invert flex-shrink-0"
         style={{ width: 18, height: 18 }}

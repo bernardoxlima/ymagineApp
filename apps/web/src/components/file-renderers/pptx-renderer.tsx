@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Download, FileText } from 'lucide-react';
-import { KortixLoader } from '@/components/ui/kortix-loader';
+import { AppLoader } from '@/components/ui/app-loader';
 import { getAuthToken } from '@/lib/auth-token';
 import { getActiveOpenCodeUrl } from '@/stores/server-store';
 import { downloadFile } from '@/features/files/api/opencode-files';
@@ -88,7 +88,7 @@ function OfficeOnlineViewer({
   if (!renderers) {
     return (
       <div className={cn('w-full h-full flex items-center justify-center', className)}>
-        <KortixLoader size="medium" />
+        <AppLoader size="medium" />
       </div>
     );
   }
@@ -97,7 +97,7 @@ function OfficeOnlineViewer({
     <Suspense
       fallback={
         <div className={cn('w-full h-full flex items-center justify-center', className)}>
-          <KortixLoader size="medium" />
+          <AppLoader size="medium" />
         </div>
       }
     >
@@ -205,7 +205,7 @@ function PptxDownloadFallback({
         </div>
         <Button size="sm" onClick={handleDownload} disabled={busy}>
           {busy ? (
-            <KortixLoader size="small" />
+            <AppLoader size="small" />
           ) : (
             <Download className="h-4 w-4 mr-2" />
           )}
@@ -271,7 +271,7 @@ export function PptxRenderer({
   if (useOfficeOnline === null) {
     return (
       <div className={cn('w-full h-full flex items-center justify-center', className)}>
-        <KortixLoader size="medium" />
+        <AppLoader size="medium" />
       </div>
     );
   }

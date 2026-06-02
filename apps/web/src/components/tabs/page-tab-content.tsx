@@ -1,7 +1,7 @@
 'use client';
 
 import { lazy, Suspense, useMemo, type ComponentType } from 'react';
-import { KortixLoader } from '@/components/ui/kortix-loader';
+import { AppLoader } from '@/components/ui/app-loader';
 
 const DEPLOYMENTS_ENABLED = process.env.NEXT_PUBLIC_KORTIX_DEPLOYMENTS_ENABLED === 'true';
 
@@ -204,7 +204,7 @@ export function PageTabContent({ href }: { href: string }) {
 		<Suspense
 			fallback={
 				<div className="flex-1 flex items-center justify-center">
-					<KortixLoader size="medium" />
+					<AppLoader size="medium" />
 				</div>
 			}
 		>

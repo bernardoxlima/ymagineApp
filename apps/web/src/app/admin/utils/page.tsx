@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Settings, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { KortixLoader } from "@/components/ui/kortix-loader";
+import { AppLoader } from "@/components/ui/app-loader";
 import { toast } from "@/lib/toast";
 import {
   useMaintenanceAdmin,
@@ -105,7 +105,7 @@ export default function AdminUtilsPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <KortixLoader size="large" />
+        <AppLoader size="large" />
       </div>
     );
   }

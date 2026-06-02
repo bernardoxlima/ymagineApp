@@ -7,7 +7,7 @@ import { ProviderList } from '@/components/providers/provider-list';
 import { GlobalProviderModal } from '@/components/providers/provider-modal';
 import { useProviderModalStore } from '@/stores/provider-modal-store';
 import { useOpenCodeProviders } from '@/hooks/opencode/use-opencode-sessions';
-import { KortixLoader } from '@/components/ui/kortix-loader';
+import { AppLoader } from '@/components/ui/app-loader';
 
 export default function ProvidersPage() {
   const openProviderModal = useProviderModalStore((s) => s.openProviderModal);
@@ -41,7 +41,7 @@ export default function ProvidersPage() {
 
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
-            <KortixLoader size="small" />
+            <AppLoader size="small" />
           </div>
         ) : connectedProviders.length > 0 ? (
           <ProviderList

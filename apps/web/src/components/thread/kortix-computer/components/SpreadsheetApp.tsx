@@ -16,7 +16,7 @@ import {
   Home,
   Download
 } from 'lucide-react';
-import { KortixLoader } from '@/components/ui/kortix-loader';
+import { AppLoader } from '@/components/ui/app-loader';
 import { cn } from '@/lib/utils';
 import { useFileList, uploadFile, mkdirFile } from '@/features/files';
 import { useQueryClient } from '@tanstack/react-query';
@@ -462,7 +462,7 @@ export const SpreadsheetApp = memo(function SpreadsheetApp({
             className="flex items-center justify-center w-10 h-10 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors disabled:opacity-50 shrink-0"
             title="Refresh spreadsheet"
           >
-            {activeEditorHandle?.isSyncing ? <KortixLoader size="small" /> : <RefreshCw className="w-4 h-4" />}
+            {activeEditorHandle?.isSyncing ? <AppLoader size="small" /> : <RefreshCw className="w-4 h-4" />}
           </button>
         )}
         <button
@@ -499,7 +499,7 @@ export const SpreadsheetApp = memo(function SpreadsheetApp({
           size="lg"
         >
           {isCreating ? (
-            <KortixLoader size="small" />
+            <AppLoader size="small" />
           ) : (
             <Plus className="w-4 h-4" />
           )}
@@ -570,7 +570,7 @@ export const SpreadsheetApp = memo(function SpreadsheetApp({
                   disabled={isCreating}
                   className="mt-4 text-zinc-500 hover:text-zinc-600 dark:text-zinc-400 text-sm font-medium disabled:opacity-50 flex items-center gap-2"
                 >
-                  {isCreating && <KortixLoader size="small" />}
+                  {isCreating && <AppLoader size="small" />}
                   {isCreating ? 'Creating...' : 'Create New'}
                 </button>
               </div>

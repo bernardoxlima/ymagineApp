@@ -50,9 +50,9 @@ export const metadata: Metadata = {
   },
   description: siteMetadata.description,
   keywords: siteMetadata.keywords,
-  authors: [{ name: 'Kortix Team', url: 'https://www.kortix.com' }],
-  creator: 'Kortix Team',
-  publisher: 'Kortix Team',
+  authors: [{ name: 'Ymagine', url: 'https://ymagine.app' }],
+  creator: 'Ymagine',
+  publisher: 'Ymagine',
   applicationName: siteMetadata.name,
   robots: {
     index: true,
@@ -85,8 +85,8 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: siteMetadata.title,
     description: siteMetadata.description,
-    creator: '@kortix',
-    site: '@kortix',
+    creator: '@ymagineapp',
+    site: '@ymagineapp',
     images: ['/banner.png'],
   },
   icons: {

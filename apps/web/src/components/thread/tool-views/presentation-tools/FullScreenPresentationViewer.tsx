@@ -14,7 +14,7 @@ import {
   SkipForward,
   Edit,
 } from 'lucide-react';
-import { KortixLoader } from '@/components/ui/kortix-loader';
+import { AppLoader } from '@/components/ui/app-loader';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -486,7 +486,7 @@ export function FullScreenPresentationViewer({
                   disabled={isDownloadingPDF || isDownloadingPPTX || isDownloadingGoogleSlides}
                 >
                   {(isDownloadingPDF || isDownloadingPPTX || isDownloadingGoogleSlides) ? (
-                    <KortixLoader customSize={14} />
+                    <AppLoader customSize={14} />
                   ) : (
                     <Download className="h-3.5 w-3.5" />
                   )}
@@ -538,7 +538,7 @@ export function FullScreenPresentationViewer({
       <div className="flex-1 flex items-center justify-center bg-zinc-100 dark:bg-zinc-900 p-2 min-h-0">
         {isLoading || !currentSlideData ? (
           <div className="text-center">
-            <KortixLoader size="large" className="mx-auto mb-4" />
+            <AppLoader size="large" className="mx-auto mb-4" />
             <p className="text-zinc-700 dark:text-zinc-300">
               {retryAttempt > 0 ? `Retrying... (attempt ${retryAttempt + 1})` : 'Loading presentation...'}
             </p>

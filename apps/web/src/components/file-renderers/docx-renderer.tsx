@@ -6,7 +6,7 @@
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { cn } from '@/lib/utils';
-import { KortixLoader } from '@/components/ui/kortix-loader';
+import { AppLoader } from '@/components/ui/app-loader';
 
 interface DocxRendererProps {
     url?: string;
@@ -133,7 +133,7 @@ export function DocxRenderer({ url, blob, className }: DocxRendererProps) {
             {/* Loading overlay */}
             {(!isRendered || isRendering) && (
                 <div className="absolute inset-0 flex items-center justify-center bg-muted/50 z-10">
-                    <KortixLoader size="medium" />
+                    <AppLoader size="medium" />
                 </div>
             )}
 

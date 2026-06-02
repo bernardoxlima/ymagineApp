@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import { Clock, Loader2 } from 'lucide-react';
 
 import { useAuth } from '@/components/AuthProvider';
-import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { AppLogo } from '@/components/sidebar/app-logo';
 import { Button } from '@/components/ui/button';
 import { UserAvatar } from '@/components/ui/user-avatar';
 import { WallpaperBackground } from '@/components/ui/wallpaper-background';
@@ -163,7 +163,7 @@ export default function InvitePage() {
 
         <div className="mt-5 flex items-center gap-3 rounded-2xl border border-foreground/[0.08] bg-foreground/[0.03] px-4 py-3.5">
           <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-foreground/[0.05] text-foreground/60">
-            <KortixLogo size={16} />
+            <AppLogo size={16} />
           </div>
           <div className="min-w-0 flex-1">
             <div className="text-foreground/85 truncate text-[14px] font-medium">
@@ -256,7 +256,7 @@ function InviteCard({
       className="w-full max-w-[380px]"
     >
       <div className="flex flex-col items-center gap-5">
-        <KortixLogo size={26} />
+        <AppLogo size={26} />
         <div className="w-full bg-background/80 dark:bg-background/75 backdrop-blur-2xl border border-foreground/[0.06] rounded-[20px] px-7 py-7">
           <p className="text-[11px] text-foreground/30 tracking-[0.2em] uppercase mb-5">
             {kicker}

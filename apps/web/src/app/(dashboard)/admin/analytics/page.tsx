@@ -21,7 +21,7 @@ import {
   UserCheck,
   Zap,
 } from 'lucide-react';
-import { KortixLoader } from '@/components/ui/kortix-loader';
+import { AppLoader } from '@/components/ui/app-loader';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format, addDays, subDays, startOfWeek, startOfMonth, startOfQuarter, startOfYear } from 'date-fns';
@@ -965,7 +965,7 @@ export default function AdminAnalyticsPage() {
         {/* Loading indicator */}
         {isSearchingUser && pendingUserEmail && (
           <div className="fixed bottom-4 right-4 bg-card border rounded-lg shadow-lg p-3 flex items-center gap-2">
-            <KortixLoader size="small" />
+            <AppLoader size="small" />
             <span className="text-sm">Loading user...</span>
           </div>
         )}

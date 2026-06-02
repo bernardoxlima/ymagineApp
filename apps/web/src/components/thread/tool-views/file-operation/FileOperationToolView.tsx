@@ -12,7 +12,7 @@ import {
   Minus,
   Plus,
 } from 'lucide-react';
-import { KortixLoader } from '@/components/ui/kortix-loader';
+import { AppLoader } from '@/components/ui/app-loader';
 import {
   formatTimestamp,
   getToolTitle,
@@ -1267,7 +1267,7 @@ export function FileOperationToolView({
                   </ScrollArea>
                   {isStreaming && oldStr && newStr && (
                     <div className="px-4 py-2 bg-zinc-50 dark:bg-zinc-950/30 border-t border-zinc-200 dark:border-zinc-700 flex items-center gap-2">
-                      <KortixLoader customSize={14} />
+                      <AppLoader customSize={14} />
                       <span className="text-xs text-zinc-600 dark:text-zinc-400">Streaming changes...</span>
                     </div>
                   )}

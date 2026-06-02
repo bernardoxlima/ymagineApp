@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
 
-interface KortixLoaderProps {
+interface AppLoaderProps {
   /**
    * Size preset for the loader
    * @default 'medium'
@@ -58,7 +58,7 @@ const SIZE_MAP = {
 } as const;
 
 /**
- * KortixLoader - A unified circular loading animation component
+ * AppLoader - A unified circular loading animation component
  * 
  * Uses a CSS-based circular spinner that adapts to light/dark themes.
  * 
@@ -73,19 +73,19 @@ const SIZE_MAP = {
  * @example
  * ```tsx
  * // Auto-themed (default)
- * <KortixLoader />
+ * <AppLoader />
  * 
  * // Always white (for dark backgrounds in any theme)
- * <KortixLoader variant="white" />
+ * <AppLoader variant="white" />
  * 
  * // Always black (for light backgrounds in any theme)
- * <KortixLoader variant="black" />
+ * <AppLoader variant="black" />
  * 
  * // Custom size
- * <KortixLoader size="large" />
+ * <AppLoader size="large" />
  * ```
  */
-export function KortixLoader({
+export function AppLoader({
   size = 'medium',
   speed = 1.2,
   customSize,
@@ -95,7 +95,7 @@ export function KortixLoader({
   loop = true,
   variant = 'auto',
   forceTheme, // deprecated, but kept for backwards compatibility
-}: KortixLoaderProps) {
+}: AppLoaderProps) {
   const { resolvedTheme } = useTheme();
   const loaderSize = customSize || SIZE_MAP[size];
   

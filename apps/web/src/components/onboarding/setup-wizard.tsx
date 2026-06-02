@@ -39,8 +39,8 @@ import {
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { KortixLoader } from '@/components/ui/kortix-loader';
-import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { AppLoader } from '@/components/ui/app-loader';
+import { AppLogo } from '@/components/sidebar/app-logo';
 import { useProviderModalStore } from '@/stores/provider-modal-store';
 import { useOpenCodeProviders } from '@/hooks/opencode/use-opencode-sessions';
 import { ProviderLogo, PROVIDER_LABELS } from '@/components/providers/provider-branding';
@@ -162,7 +162,7 @@ function WelcomePane({ onNext }: { onNext: () => void }) {
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
       >
-        <KortixLogo variant="logomark" size={38} />
+        <AppLogo variant="logomark" size={38} />
       </motion.div>
 
       {/* Welcome text */}
@@ -364,7 +364,7 @@ function ProvidersPane({ onNext, onBack }: { onNext: () => void; onBack: () => v
   if (isLoading) {
     return (
       <div className="flex flex-col items-center py-16 space-y-4">
-        <KortixLoader size="small" />
+        <AppLoader size="small" />
         <p className="text-xs text-muted-foreground/40">Checking providers…</p>
       </div>
     );
@@ -520,7 +520,7 @@ function DefaultModelPane({ onNext, onBack }: { onNext: () => void; onBack: () =
   if (isLoading) {
     return (
       <div className="flex flex-col items-center py-16 space-y-4">
-        <KortixLoader size="small" />
+        <AppLoader size="small" />
         <p className="text-xs text-muted-foreground/40">Loading models…</p>
       </div>
     );
@@ -1048,7 +1048,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
       {/* Header: Logo + stepper — hidden on welcome step */}
       {step > 0 && (
         <div className="absolute top-0 inset-x-0 flex flex-col items-center pt-8 gap-6">
-          <KortixLogo size={20} />
+          <AppLogo size={20} />
           <StepIndicator current={step - 1} steps={steps} />
         </div>
       )}
