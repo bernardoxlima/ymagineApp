@@ -79,7 +79,7 @@ fi
 # OPENROUTER_API_KEY. Without this, keys added post-boot never reach
 # opencode, because s6-supervise's env snapshot was taken before those
 # files existed.
-for _pv in ANTHROPIC_API_KEY OPENAI_API_KEY OPENROUTER_API_KEY; do
+for _pv in ANTHROPIC_API_KEY OPENAI_API_KEY OPENROUTER_API_KEY GOOGLE_API_KEY; do
   _pf="/run/s6/container_environment/${_pv}"
   if [ -s "$_pf" ]; then
     export "${_pv}=$(cat "$_pf")"
