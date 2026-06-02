@@ -462,6 +462,20 @@ impossible (Denis chose code-only / keep-Boston / no stale cache).
 
 Lesson → [[claude-failure-modes]] §16. [[D-022]] [[D-023]]
 
+## D-026 · Per-model reasoning effort = opencode `variant`; synthesized for most; only grok-type OpenRouter models need config (D-022 UI follow-up)
+
+**Context.** Goal: per-model effort selector in chat UI across all 4 providers. Researched opencode v1.14.28 source (anomalyco fork, vendored in `core/kortix-master/opencode`).
+
+**How effort works.** Frontend sends `variant: "<key>"` to `session.prompt` (the ONLY effort path — no raw `reasoning.effort`). opencode resolves `variants[key]` → provider reasoning option. Variants come from models.dev OR config (`provider.<id>.models.<id>.variants`). opencode **synthesizes** correct variants in `ProviderTransform.variants()` for anthropic/openai/google/OpenRouter-gpt-claude-gemini — those work via the UI selector without config. Payload shape differs by npm: openrouter `{reasoning:{effort}}`, openai `{reasoningEffort}`, anthropic `{thinking:…}`, google `{thinkingConfig:…}`. Effort sets are **per-model** — a universal list 400s at the provider.
+
+**Decision.**
+1. Chat effort selector reads per-model `variants` from `/config/providers` — no universal set. (#30)
+2. Declare all 4 providers explicitly in opencode.jsonc (npm-verified) so listing is deterministic; export `GOOGLE_API_KEY` in launcher (google was listed ONLY via fragile `auth.json`). (#33)
+3. Add config `variants` ONLY for models opencode does NOT synthesize — chiefly `x-ai/grok-4.20` (transform returns `{}`), shape `{reasoning:{effort}}`, keys low/med/high. Never hand-add variants to synthesized models (unsupported key 400s).
+4. **No config-allowlist rule** in opencode v1.14.28 — a provider block cannot drop other providers (source-verified). The 4→2 drop was CREDENTIAL/boot-timing, not the config. Lesson → [[claude-failure-modes]] §19.
+
+Shipped: #30 (UI selector), #33 (4-provider config + grok + google launcher), #32 (revert flawed #31). Verified live on `effort-4prov`: 4 providers / 443 models / grok low-med-high / synthesized intact. [[D-022]]
+
 ## D-027 · PostgreSQL REVOKE pattern — always FROM PUBLIC, verified on prod DB
 
 **Context.** [[claude-failure-modes]] §17 §18.

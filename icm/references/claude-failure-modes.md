@@ -489,6 +489,26 @@ Fix → [[decisions]] D-027.
 
 ---
 
+## §19 — A provider/feature "disappearing" after a deploy: check credential + boot-timing BEFORE blaming your change (D-026)
+
+I added ONE `provider.openrouter` block to opencode.jsonc and openai+google vanished from the model
+list (4→2 providers). I concluded my config broke it + rolled back. **WRONG.** opencode v1.14.28
+has NO allowlist rule — a config block CANNOT drop other providers (verified line-by-line in
+`provider.ts`: the env/auth loops iterate the whole models.dev database with only a
+`disabled_providers` guard; no `cfg.provider`-non-empty gate). The real cause was
+**CREDENTIAL/boot-timing**: opencode lists a provider only when it finds a credential — an ENV key
+(launcher exports ANTHROPIC/OPENAI/OPENROUTER, now +GOOGLE) OR an `auth.json` `{type:"api"}` entry.
+On the recreate's boot, the s6-env sync hadn't populated the keys yet AND google's `auth.json` (its
+ONLY listing path — fragile; auth-sync can clear it) was absent → fewer providers listed. It
+self-healed once the sync caught up. Lessons: (1) when something vanishes after a deploy, snapshot
+the CREDENTIAL/runtime state (which env keys are present? which auth.json entries?) BEFORE assuming
+the code diff caused it — correlation with a recreate is often boot-timing, not the diff; (2) read
+the ACTUAL source for the rule you're theorizing about (the "config allowlist" rule never existed);
+(3) opencode storage lives on `/workspace` via the `/persistent → /workspace/.persistent-system`
+symlink (persisted), NOT ephemeral. Fix → [[decisions]] D-026.
+
+---
+
 ## Quick pre-commit checklist (use before every PR)
 
 - [ ] Did you change any shell script / Dockerfile / host-exec string? → re-read §1.
@@ -511,3 +531,4 @@ Fix → [[decisions]] D-027.
 - [ ] Trimming L0 by delegating routing/refs to L1? → confirm L1 actually covers EVERYTHING you removed BEFORE merging (Stage 08 fell out of routing this way — #19 shipped the gap, #20 fixed it)
 - [ ] Creating/expecting agents that work the Board? → they must be `project_agents` rows (Team tab → New agent, or `seed-v2`), NOT hand-written `.opencode/agent` files; seed an unconfigured model = dead agent (§15, `stack/agents.md`)
 - [ ] Asked to "make it faster"? → measure the hop budget (RTT vs server vs DB) with a read-only harness FIRST; never optimize a layer you haven't measured. RTT often dwarfs the server (Boston↔Brazil ≈ 141ms vs ~4ms server) → fix round-trip count / prefetch, not the DB (§16, D-025)
+- [ ] A provider/model/feature "disappeared" after a sandbox deploy? → snapshot credential + boot-timing state (env keys present? auth.json entries?) BEFORE blaming your diff. opencode lists providers by credential; env-sync can lag the boot; no config-allowlist rule exists. Adding effort? opencode `variant` mechanism, per-model, synthesized for most — only grok-type OpenRouter models need config variants (§19, D-026)
