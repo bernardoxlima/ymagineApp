@@ -461,3 +461,26 @@ impossible (Denis chose code-only / keep-Boston / no stale cache).
    correctness for perceived speed; skeletons that fake speed are out of scope.
 
 Lesson → [[claude-failure-modes]] §16. [[D-022]] [[D-023]]
+
+## D-027 · PostgreSQL REVOKE pattern — always FROM PUBLIC, verified on prod DB
+
+**Context.** [[claude-failure-modes]] §17 §18.
+
+**Decision.**
+1. **REVOKE EXECUTE migrations must always include `FROM PUBLIC`** — named-role revoke is a
+   silent no-op when `PUBLIC` still holds the grant (PostgreSQL default for `CREATE FUNCTION`).
+   Canonical pattern:
+   ```sql
+   REVOKE EXECUTE ON FUNCTION public.f(...) FROM PUBLIC, anon, authenticated;
+   GRANT EXECUTE ON FUNCTION public.f(...) TO service_role;
+   ```
+2. **Verify on prod DB, not just CI** — `deploy-hostinger` does NOT apply Supabase migrations.
+   After any security-critical migration, confirm with:
+   ```sql
+   SELECT grantee FROM information_schema.role_routine_grants
+   WHERE routine_schema = 'public' AND routine_name = 'f';
+   -- expected: only postgres + service_role
+   ```
+3. **Self-hosted migration procedure** — scp file to VPS → `docker cp` to
+   `kortix-supabase-db-1` → `docker exec … psql -U postgres -f /tmp/file.sql`.
+   Template in deploy-runbook.md.

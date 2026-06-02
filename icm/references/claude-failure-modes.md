@@ -430,6 +430,65 @@ a skeleton) as the legitimate path. Fix → [[decisions]] D-025.
 
 ---
 
+## §17 — PostgreSQL REVOKE from named roles is a silent no-op when PUBLIC still has the grant
+
+**What happened (2026-06-02):** Pentest found 5 billing RPCs callable via PostgREST anon key.
+Migration `00000000000032` was written to `REVOKE EXECUTE … FROM anon, authenticated` — shipped,
+merged, applied to prod. Verification showed `has_function_privilege('anon', …, 'execute') = t`
+— still TRUE. Live PostgREST call still returned `{"reason":"account_not_found"}` instead of
+`42501 permission denied`. The REVOKE was a silent no-op.
+
+**Root cause:** `CREATE FUNCTION` in PostgreSQL grants `EXECUTE` to `PUBLIC` by default.
+Roles `anon` and `authenticated` inherit via `PUBLIC`, so revoking from the named roles
+while `PUBLIC` still holds the grant has zero effect. The `information_schema.role_routine_grants`
+table showed `PUBLIC | EXECUTE` on all 5 functions — the named-role revoke only removes a
+*direct* grant; it cannot override the inherited PUBLIC one.
+
+**Fix:** Always `REVOKE EXECUTE FROM PUBLIC` first, then optionally re-grant to specific roles:
+```sql
+-- WRONG — no-op if PUBLIC still has it:
+REVOKE EXECUTE ON FUNCTION public.f(...) FROM anon, authenticated;
+
+-- CORRECT — removes the inherited path too:
+REVOKE EXECUTE ON FUNCTION public.f(...) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.f(...) TO service_role;  -- re-grant explicitly
+```
+
+**Also note:** `has_function_privilege('anon', 'f(...)', 'execute')` returns `t` even after
+revoking from `anon` if PUBLIC still holds the grant — the check resolves transitively. Use
+`information_schema.role_routine_grants` or `pg_proc` `proacl` to see the actual grant list.
+
+**Pre-commit check:** Any migration with `REVOKE EXECUTE` → always include `FROM PUBLIC` and
+verify with `SELECT grantee FROM information_schema.role_routine_grants WHERE routine_name = 'f'`
+before declaring done. Fix → [[decisions]] D-027.
+
+---
+
+## §18 — Supabase self-hosted migrations are NOT applied by deploy-hostinger
+
+**What happened (2026-06-02, same incident):** Migration file was created, merged to `main`, CI
+passed, `deploy-hostinger` succeeded — but the REVOKE had no effect because the SQL was never
+executed against the running database. It took a manual `psql` session inside the container to
+actually apply it.
+
+**Root cause:** `deploy-hostinger.yml` builds and deploys Docker images for `apps/api` and
+`apps/web`. It does NOT run `supabase db push` or any migration step against the self-hosted
+Supabase. Migrations in `supabase/migrations/` are applied only:
+- Locally via `supabase db reset`
+- On self-hosted prod via manual `docker exec kortix-supabase-db-1 psql -U postgres -f …`
+
+**Rule:** Any security-critical or data-shape-changing migration MUST be verified on prod with a
+query that checks the DB state (not just "CI passed"). For REVOKE: check
+`information_schema.role_routine_grants`. For schema changes: check `\d table`. For RLS: check
+`pg_policies`. A green deploy pipeline is a code delivery gate, NOT a DB state gate on
+self-hosted Supabase.
+
+**Pre-commit check (added to checklist below):** Any `supabase/migrations/` file that is
+security-critical → add a follow-up task: "apply + verify on prod DB before declaring done".
+Fix → [[decisions]] D-027.
+
+---
+
 ## Quick pre-commit checklist (use before every PR)
 
 - [ ] Did you change any shell script / Dockerfile / host-exec string? → re-read §1.
@@ -443,6 +502,8 @@ a skeleton) as the legitimate path. Fix → [[decisions]] D-025.
 - [ ] Are any secret values in your diff, in a shell command, or in a log line? (§10, §11.1)
 - [ ] Reasoning about sandbox/deploy? → checked `ALLOWED_SANDBOX_PROVIDERS` + `docker ps` on the VPS; remember `NEXT_PUBLIC_*` is build-time and `core/` ships via the sandbox image, not `deploy-hostinger` (§11)
 - [ ] Shipping behaviour that NARROWS a result set (scope/filter/RLS)? → backfill the existing data in the SAME change (§12, §7)
+- [ ] Writing a `REVOKE EXECUTE` migration? → did you include `FROM PUBLIC`? Verify with `information_schema.role_routine_grants` on prod, not just CI (§17)
+- [ ] Any `supabase/migrations/` file that is security-critical? → manual `psql` apply + verify on prod DB; `deploy-hostinger` does NOT run migrations (§18)
 - [ ] Writing a `core/` data script to `kortix.db`? → bun:sqlite write = `new Database(path)` (not `{readonly:false}`); never move a session already on a sub-project (§12.2)
 - [ ] Deploying a sandbox image? → `docker image prune -a -f` first (disk full); re-`docker login ghcr.io` from the VPS `.env` token if pull says `denied` (§13)
 - [ ] About to SSH to prod? → key is `~/.ssh/vps_temp`; needs explicit user authorization (classifier blocks it otherwise); feed scripts via `'sh -s' <<'REMOTE'` (§14)
