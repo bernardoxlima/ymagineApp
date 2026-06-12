@@ -17,14 +17,13 @@ import { BrowserNoiseGuard } from '@/components/browser-noise-guard';
 import { DesktopChrome } from '@/components/desktop/desktop-chrome';
 import { DESKTOP_INIT_SCRIPT } from '@/lib/desktop';
 
-// Lazy load non-critical analytics and global components
-const Analytics = lazy(() => import('@vercel/analytics/react').then(mod => ({ default: mod.Analytics })));
-const SpeedInsights = lazy(() => import('@vercel/speed-insights/next').then(mod => ({ default: mod.SpeedInsights })));
-const GoogleTagManager = lazy(() => import('@next/third-parties/google').then(mod => ({ default: mod.GoogleTagManager })));
-const PostHogIdentify = lazy(() => import('@/components/posthog-identify').then(mod => ({ default: mod.PostHogIdentify })));
+// Lazy load non-critical global components.
+// GTM / PostHog / Vercel Analytics+SpeedInsights were removed: self-hosted
+// internal deployment — no product analytics, and the Vercel collectors only
+// work on Vercel infrastructure anyway. Sentry (errors) stays, wired in
+// instrumentation-client.ts.
 const AnnouncementDialog = lazy(() => import('@/components/announcements/announcement-dialog').then(mod => ({ default: mod.AnnouncementDialog })));
-const RouteChangeTracker = lazy(() => import('@/components/analytics/route-change-tracker').then(mod => ({ default: mod.RouteChangeTracker })));
-const AuthEventTracker = lazy(() => import('@/components/analytics/auth-event-tracker').then(mod => ({ default: mod.AuthEventTracker })));
+const AuthParamsCleanup = lazy(() => import('@/components/analytics/auth-params-cleanup').then(mod => ({ default: mod.AuthParamsCleanup })));
 const LocalhostLinkInterceptor = lazy(() => import('@/components/localhost-link-interceptor').then(mod => ({ default: mod.LocalhostLinkInterceptor })));
 // Not lazy — wraps {children} so it must be available for SSR to avoid hydration mismatch
 import { IntegrationConnectProvider } from '@/components/integrations/integration-connect-provider';
@@ -156,72 +155,11 @@ export default async function RootLayout({
             so browser translation is unnecessary and actively harmful. */}
         <meta name="google" content="notranslate" />
 
-        {/* DNS prefetch for analytics (loaded later but resolve DNS early) */}
-        <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
-        <link rel="dns-prefetch" href="https://eu.i.posthog.com" />
-
         {/* Preconnect to Supabase/backend so the first auth + API requests
             skip DNS+TCP+TLS setup (browser fetches are CORS-anonymous). */}
         {preconnectOrigins.map((origin) => (
           <link key={origin} rel="preconnect" href={origin} crossOrigin="anonymous" />
         ))}
-
-        {/* Container Load - Initialize dataLayer with page context BEFORE GTM loads */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                window.dataLayer = window.dataLayer || [];
-                var pathname = window.location.pathname;
-                var pathParts = pathname.split('/');
-                if (pathParts.length >= 3 && pathParts[1] === 'instances') {
-                  pathname = '/' + pathParts.slice(3).join('/');
-                  if (pathname === '/') {
-                    pathname = '/';
-                  } else if (!pathname.startsWith('/')) {
-                    pathname = '/' + pathname;
-                  }
-                }
-                
-                // Get language from localStorage, cookie, or default to 'en'
-                var lang = 'en';
-                try {
-                  // Check localStorage first
-                  var stored = localStorage.getItem('locale');
-                  if (stored) {
-                    lang = stored;
-                  } else {
-                    // Check cookie
-                    var cookies = document.cookie.split(';');
-                    for (var i = 0; i < cookies.length; i++) {
-                      var cookie = cookies[i].trim();
-                      if (cookie.indexOf('locale=') === 0) {
-                        lang = cookie.substring(7);
-                        break;
-                      }
-                    }
-                  }
-                } catch (e) {}
-                
-                var context = { master_group: 'General', content_group: 'Other', page_type: 'other', language: lang };
-                
-                if (pathname === '/' || pathname === '') {
-                  context = { master_group: 'General', content_group: 'Other', page_type: 'home', language: lang };
-                } else if (pathname.indexOf('/auth') === 0) {
-                  context = { master_group: 'General', content_group: 'User', page_type: 'auth', language: lang };
-                } else if (pathname === '/dashboard') {
-                  context = { master_group: 'Platform', content_group: 'Dashboard', page_type: 'home', language: lang };
-                } else if (pathname.indexOf('/workspace') === 0 || pathname.indexOf('/projects') === 0 || pathname.indexOf('/thread') === 0) {
-                  context = { master_group: 'Platform', content_group: 'Dashboard', page_type: 'thread', language: lang };
-                } else if (pathname.indexOf('/settings') === 0) {
-                  context = { master_group: 'Platform', content_group: 'User', page_type: 'settings', language: lang };
-                }
-                
-                window.dataLayer.push(context);
-              })();
-            `,
-          }}
-        />
 
         {/* Static SEO meta tags - rendered in initial HTML */}
         <title>Ymagine – AI Agent Platform</title>
@@ -307,26 +245,11 @@ export default async function RootLayout({
               </ReactQueryProvider>
             </I18nProvider>
           </AuthProvider>
-          {/* Analytics - lazy loaded to not block FCP */}
+          {/* Strips ?auth_event/&auth_method from the URL after OAuth
+              redirects (used to also feed GTM — tracking removed, the URL
+              cleanup behavior stays). */}
           <Suspense fallback={null}>
-            <Analytics />
-          </Suspense>
-          {process.env.NEXT_PUBLIC_GTM_ID && (
-            <Suspense fallback={null}>
-              <GoogleTagManager gtmId={process.env.NEXT_PUBLIC_GTM_ID} />
-            </Suspense>
-          )}
-          <Suspense fallback={null}>
-            <SpeedInsights />
-          </Suspense>
-          <Suspense fallback={null}>
-            <PostHogIdentify />
-          </Suspense>
-          <Suspense fallback={null}>
-            <RouteChangeTracker />
-          </Suspense>
-          <Suspense fallback={null}>
-            <AuthEventTracker />
+            <AuthParamsCleanup />
           </Suspense>
           <Suspense fallback={null}>
             <LocalhostLinkInterceptor />
