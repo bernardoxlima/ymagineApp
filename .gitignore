@@ -82,3 +82,6 @@ icm/output/
 icm/references/deploy-runbook.md
 icm/references/security-state.md
 icm/references/integrations.md
+
+# Security reports — never committed
+pentest/
