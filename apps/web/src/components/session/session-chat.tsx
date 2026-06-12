@@ -4040,7 +4040,9 @@ export function SessionChat({
   >(null);
   // Stable identity so the memoized SessionTurn doesn't re-render on every
   // parent render (an inline closure here would break the memo for all turns).
-  const handleFork = useCallback(async (userMessageId: string) => {
+  // Opens the fork CONFIRMATION dialog — the actual fork runs in handleFork
+  // below once the user confirms.
+  const handleRequestFork = useCallback(async (userMessageId: string) => {
     setConfirmForkMessageId(userMessageId);
   }, []);
   const [pendingCommand, setPendingCommand] = useState<{
@@ -6181,7 +6183,7 @@ export function SessionChat({
                         isFirstTurn={turnIndex === 0}
                         isBusy={isBusy}
                         isCompaction={hasCompaction}
-                        onFork={handleFork}
+                        onFork={handleRequestFork}
                         onEditFork={handleEditFork}
                         providers={providers}
                         commandMessages={commandMessagesRef.current}
