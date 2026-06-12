@@ -3,6 +3,10 @@
 import { useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useServerStore } from '@/stores/server-store';
+import {
+  readLSQueryCacheMapEntry,
+  writeLSQueryCacheMapEntry,
+} from '@/lib/ls-query-cache';
 import { listFiles } from '../api/opencode-files';
 import { useFilesStore } from '../store/files-store';
 import type { FileNode } from '../types';
@@ -29,7 +33,15 @@ export function useFileList(
 
   const query = useQuery<FileNode[]>({
     queryKey: fileListKeys.dir(serverUrl, dirPath),
-    queryFn: () => listFiles(dirPath),
+    queryFn: async () => {
+      const nodes = await listFiles(dirPath);
+      writeLSQueryCacheMapEntry('file-list', dirPath, nodes);
+      return nodes;
+    },
+    // placeholderData only — see ls-query-cache.ts staleness note. With
+    // staleTime of 5s the real listing always refetches right away; the
+    // placeholder just removes the empty flash on first open of the tab.
+    placeholderData: () => readLSQueryCacheMapEntry<FileNode[]>('file-list', dirPath),
     enabled: !!dirPath && options?.enabled !== false,
     staleTime: 5_000,
     gcTime: 2 * 60_000,
