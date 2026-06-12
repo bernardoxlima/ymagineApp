@@ -69,26 +69,15 @@ const nextConfig = (): NextConfig => ({
         source: '/v1/:path*',
         destination: 'http://localhost:8008/v1/:path*',
       },
-      {
-        source: '/ingest/static/:path*',
-        destination: 'https://eu-assets.i.posthog.com/static/:path*',
-      },
-      {
-        source: '/ingest/:path*',
-        destination: 'https://eu.i.posthog.com/:path*',
-      },
-      {
-        source: '/ingest/flags',
-        destination: 'https://eu.i.posthog.com/flags',
-      },
     ];
   },
 
   // HTTP headers for security, caching and performance
   async headers() {
     // Connect-src: browser makes direct calls to the Supabase Kong gateway and
-    // the Hono backend. PostHog/Sentry/BetterStack are proxied through Next.js
+    // the Hono backend. Sentry/BetterStack are proxied through Next.js
     // rewrites so they only need 'self'. Supabase Realtime uses wss://.
+    // (PostHog/GTM removed — self-hosted internal deployment.)
     const CSP_CONNECT_SRC = [
       "'self'",
       'https://supabase.ymagine.app',
