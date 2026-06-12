@@ -12,6 +12,7 @@ import {
 } from "@/components/dashboard/connecting-screen";
 import { AppProviders } from "@/components/layout/app-providers";
 import { TabBar } from "@/components/tabs/tab-bar";
+import { HOT_TAB_CHUNK_THUNKS } from "@/components/tabs/page-tab-content";
 import { useAdminRole } from "@/hooks/admin";
 import { useSystemStatusQuery } from "@/hooks/edge-flags";
 import { useCreateOpenCodeSession } from "@/hooks/opencode/use-opencode-sessions";
@@ -120,21 +121,25 @@ const GlobalProviderModal = lazy(() =>
 
 
 
-const SessionLayout = lazy(() =>
+// Named thunks so the idle warmup below can preload these chunks — sessions
+// are the most-opened tab type and session-chat is the largest chunk in the
+// app. Without the warmup, the first session open pays a chunk round-trip.
+const loadSessionLayout = () =>
 	import("@/components/session/session-layout").then((mod) => ({
 		default: mod.SessionLayout,
-	})),
-);
-const SessionChat = lazy(() =>
+	}));
+const loadSessionChat = () =>
 	import("@/components/session/session-chat").then((mod) => ({
 		default: mod.SessionChat,
-	})),
-);
-const FileTabContent = lazy(() =>
+	}));
+const loadFileTabContent = () =>
 	import("@/components/tabs/file-tab-content").then((mod) => ({
 		default: mod.FileTabContent,
-	})),
-);
+	}));
+
+const SessionLayout = lazy(loadSessionLayout);
+const SessionChat = lazy(loadSessionChat);
+const FileTabContent = lazy(loadFileTabContent);
 const PreviewTabContent = lazy(() =>
 	import("@/components/tabs/preview-tab-content").then((mod) => ({
 		default: mod.PreviewTabContent,
@@ -961,6 +966,44 @@ export default function DashboardLayoutContent({
 			setHasEverRendered(true);
 		}
 	}, [hasEverRendered, isLoading, user, onboardingChecked, connectionStatus, hasNoSandbox, bootWasConnected]);
+
+	// ── Idle chunk warmup ───────────────────────────────────────────────────
+	// After the dashboard has settled, preload the lazy chunks for the
+	// most-opened tab types during browser idle time. First open of a session /
+	// files / workspace / project tab then becomes a pure CSS show instead of a
+	// chunk round-trip + AppLoader flash. Sequential on purpose — never competes
+	// with in-flight critical requests for bandwidth.
+	useEffect(() => {
+		if (!hasEverRendered) return;
+		let cancelled = false;
+		const warmup = () => {
+			void (async () => {
+				const thunks = [
+					loadSessionLayout,
+					loadSessionChat,
+					loadFileTabContent,
+					...HOT_TAB_CHUNK_THUNKS,
+				];
+				for (const load of thunks) {
+					if (cancelled) return;
+					await load().catch(() => {
+						/* offline / chunk error — first real open will retry */
+					});
+				}
+			})();
+		};
+		const idleHandle = typeof window.requestIdleCallback === "function"
+			? window.requestIdleCallback(warmup, { timeout: 5000 })
+			: window.setTimeout(warmup, 1500);
+		return () => {
+			cancelled = true;
+			if (typeof window.cancelIdleCallback === "function") {
+				window.cancelIdleCallback(idleHandle as number);
+			} else {
+				clearTimeout(idleHandle as number);
+			}
+		};
+	}, [hasEverRendered]);
 
 	// Pin the stage copy to whatever is actually pending so the connect
 	// screen reflects real progress instead of cycling blindly.
