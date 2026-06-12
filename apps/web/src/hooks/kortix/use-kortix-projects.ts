@@ -11,6 +11,7 @@ import { useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useServerStore } from '@/stores/server-store';
 import { authenticatedFetch } from '@/lib/auth-token';
+import { readLSQueryCache, writeLSQueryCache } from '@/lib/ls-query-cache';
 import { useAuth } from '@/components/AuthProvider';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -65,7 +66,13 @@ export function useKortixProjects(_args?: undefined, options: KortixProjectQuery
   const serverUrl = useServerStore((s) => s.getActiveServerUrl());
   return useQuery<KortixProject[]>({
     queryKey: [...kortixKeys.projects(), user?.id ?? 'anonymous', serverUrl, serverVersion],
-    queryFn: () => kortixFetch<KortixProject[]>(serverUrl, ''),
+    queryFn: async () => {
+      const projects = await kortixFetch<KortixProject[]>(serverUrl, '');
+      writeLSQueryCache('kortix-projects', projects);
+      return projects;
+    },
+    // placeholderData only — see ls-query-cache.ts staleness note.
+    placeholderData: () => readLSQueryCache<KortixProject[]>('kortix-projects'),
     enabled: !isAuthLoading && !!user && !!serverUrl && (options.enabled ?? true),
     staleTime: 30_000,
     gcTime: 5 * 60 * 1000,

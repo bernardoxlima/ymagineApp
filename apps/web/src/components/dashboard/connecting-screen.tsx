@@ -233,6 +233,16 @@ export function ConnectingScreen({
 
   if (!forceConnecting && status === 'connected' && healthy !== false) return null;
 
+  // Optimistic boot: this browser was connected to the persisted active server
+  // before and the FIRST health check is still in flight — render nothing so
+  // the (cached) dashboard paints immediately instead of a blocking loader.
+  // If the check fails, `initialCheckDone` latches and the ReconnectPill /
+  // unreachable views below take over in place. Also covers the provisioning
+  // handoff (markProvisioningVerified sets wasConnected before redirecting).
+  if (!forceConnecting && status === 'connecting' && wasConnected && !initialCheckDone) {
+    return null;
+  }
+
   const isMidSessionDrop =
     !forceConnecting &&
     wasConnected &&

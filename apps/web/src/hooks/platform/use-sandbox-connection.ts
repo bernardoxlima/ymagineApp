@@ -66,9 +66,15 @@ export function useSandboxConnection() {
 		prevServerVersionRef.current = serverVersion;
 
 		if (isFirstMount || isServerSwitch) {
-			// Full reset — clears wasConnected, failCount, status, everything.
+			// Full reset — clears failCount, status, versions, everything.
 			// Each instance starts with a clean slate.
-			resetForServerSwitch();
+			//
+			// On the FIRST mount of a cold load the active server is the same
+			// persisted one from the last session, so the persisted wasConnected
+			// hint still applies — preserving it enables the optimistic boot path
+			// (cached UI + data fetches in parallel with the first health check).
+			// A real server switch wipes it, as before.
+			resetForServerSwitch({ preserveWasConnected: isFirstMount && !isServerSwitch });
 			portsFetchedRef.current = false;
 		}
 

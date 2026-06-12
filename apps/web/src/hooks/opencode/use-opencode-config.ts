@@ -2,7 +2,8 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getClient } from '@/lib/opencode-sdk';
-import { useSandboxConnectionStore } from '@/stores/sandbox-connection-store';
+import { readLSQueryCache, writeLSQueryCache } from '@/lib/ls-query-cache';
+import { useOpenCodeRuntimeReady } from './use-runtime-ready';
 import type { Config } from '@opencode-ai/sdk/v2/client';
 
 export type { Config };
@@ -20,14 +21,20 @@ function unwrap<T>(result: { data?: T; error?: unknown }): T {
 }
 
 export function useOpenCodeConfig() {
-  const runtimeReady = useSandboxConnectionStore((s) => s.status === 'connected' && s.healthy === true);
+  const runtimeReady = useOpenCodeRuntimeReady();
   return useQuery<Config>({
     queryKey: configKeys.all,
     queryFn: async () => {
       const client = getClient();
       const result = await client.global.config.get();
-      return unwrap(result);
+      const config = unwrap(result);
+      writeLSQueryCache('config', config);
+      return config;
     },
+    // placeholderData only — see ls-query-cache.ts staleness note. Config
+    // drives the model/agent selectors on the dashboard, so painting the
+    // last-known value makes the chat input usable immediately on cold load.
+    placeholderData: () => readLSQueryCache<Config>('config'),
     enabled: runtimeReady,
     staleTime: Infinity,
     gcTime: 10 * 60 * 1000,

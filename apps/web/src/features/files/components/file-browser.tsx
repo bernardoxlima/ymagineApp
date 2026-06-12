@@ -32,6 +32,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useFilesStore } from '../store/files-store';
+import { useOpenCodeRuntimeReady } from '@/hooks/opencode/use-runtime-ready';
 import { useFileList, useServerHealth, useGitStatus, buildGitStatusMap } from '../hooks';
 import {
   useFileUpload,
@@ -129,17 +130,19 @@ export function FileBrowser() {
   const clearClipboard = useFilesStore((s) => s.clearClipboard);
 
   const { data: health, isLoading: isHealthLoading } = useServerHealth();
+  // Optimistic gate — parallel with the first health check on cold load.
+  const runtimeReady = useOpenCodeRuntimeReady();
   const {
     data: files,
     isLoading,
     error,
     refetch,
   } = useFileList(currentPath, {
-    enabled: health?.healthy === true,
+    enabled: runtimeReady,
   });
 
   // Git status
-  const { data: gitStatuses } = useGitStatus({ enabled: health?.healthy === true });
+  const { data: gitStatuses } = useGitStatus({ enabled: runtimeReady });
   const gitStatusMap = useMemo(() => buildGitStatusMap(gitStatuses), [gitStatuses]);
 
   // Mutations

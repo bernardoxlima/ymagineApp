@@ -24,7 +24,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFilesStore, useFilesStoreApi } from '../store/files-store';
-import { useFileList, useGitStatus, buildGitStatusMap, useServerHealth } from '../hooks';
+import { useFileList, useGitStatus, buildGitStatusMap } from '../hooks';
+import { useOpenCodeRuntimeReady } from '@/hooks/opencode/use-runtime-ready';
 import {
   useFileUpload,
   useFileDelete,
@@ -642,10 +643,11 @@ export function FileTree() {
   const clearClipboard = useFilesStore((s) => s.clearClipboard);
   const toggleSearch = useFilesStore((s) => s.toggleSearch);
 
-  const { data: health } = useServerHealth();
+  // Optimistic gate — parallel with the first health check on cold load.
+  const runtimeReady = useOpenCodeRuntimeReady();
 
   // Git status
-  const { data: gitStatuses } = useGitStatus({ enabled: health?.healthy === true });
+  const { data: gitStatuses } = useGitStatus({ enabled: runtimeReady });
   const gitStatusMap = useMemo(() => buildGitStatusMap(gitStatuses), [gitStatuses]);
 
   // Diagnostics — uses buildDiagnosticCountsMap to handle abs→rel path matching
