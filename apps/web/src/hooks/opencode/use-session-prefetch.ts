@@ -80,6 +80,15 @@ export function resetPrefetchState(): void {
 }
 
 /**
+ * Forget a single session's prefetch marker. Called when its sync-store data
+ * is evicted (tab close) so a later hover-prefetch actually re-warms it
+ * instead of no-opping on the stale "already prefetched" flag.
+ */
+export function forgetPrefetchedSession(sessionId: string): void {
+  prefetchedSessions.delete(sessionId);
+}
+
+/**
  * Hook: background-prefetch top N sessions after session list loads.
  * Uses requestIdleCallback to avoid blocking UI.
  */
