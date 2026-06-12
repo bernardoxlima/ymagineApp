@@ -2,9 +2,10 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useServerStore } from '@/stores/server-store';
+import { useOpenCodeRuntimeReady } from '@/hooks/opencode/use-runtime-ready';
 import { getFileStatus } from '../api/opencode-files';
 import type { GitFileStatus } from '../types';
-import { useCurrentProject, useServerHealth } from './use-server-health';
+import { useCurrentProject } from './use-server-health';
 
 export const gitStatusKeys = {
   all: ['opencode-files', 'git-status'] as const,
@@ -18,13 +19,13 @@ export const gitStatusKeys = {
  */
 export function useGitStatus(options?: { enabled?: boolean }) {
   const serverUrl = useServerStore((s) => s.getActiveServerUrl());
-  const { data: health } = useServerHealth();
+  const runtimeReady = useOpenCodeRuntimeReady();
   const { data: project } = useCurrentProject({
     enabled: options?.enabled !== false,
   });
   const enabled =
     options?.enabled !== false &&
-    health?.healthy === true &&
+    runtimeReady &&
     project?.vcs === 'git';
 
   return useQuery<GitFileStatus[]>({

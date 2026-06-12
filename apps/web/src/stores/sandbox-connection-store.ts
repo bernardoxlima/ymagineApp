@@ -36,16 +36,24 @@ interface SandboxConnectionStore {
 	restartRequestedAt: number | null;
 }
 
-// ── Persist wasConnected across hard refreshes via sessionStorage ──
-// On hard refresh, wasConnected resets to false which triggers a full-screen
-// blocking overlay. By persisting it, users who were previously connected
-// see the lightweight reconnect pill instead, making reconnection feel instant.
+// ── Persist wasConnected across hard refreshes and new tabs ──
+// On cold load, wasConnected=false triggers the full-screen blocking overlay
+// AND serializes every data fetch behind the first health check. By persisting
+// it (localStorage so new tabs benefit too), a browser that has connected to
+// the persisted active server before boots optimistically: cached UI paints
+// immediately and data queries run in parallel with the first health check.
+// The health poller corrects the state if the sandbox is actually down.
 const STORAGE_KEY = "kortix-sandbox-was-connected";
 const PROVISION_VERIFIED_KEY = "kortix-sandbox-provision-verified";
 
 function loadWasConnected(): boolean {
 	try {
-		return sessionStorage.getItem(STORAGE_KEY) === "1";
+		return (
+			localStorage.getItem(STORAGE_KEY) === "1" ||
+			// Legacy location (pre-localStorage) — still honored so existing
+			// sessions don't regress to the blocking overlay after deploy.
+			sessionStorage.getItem(STORAGE_KEY) === "1"
+		);
 	} catch {
 		return false;
 	}
@@ -54,8 +62,9 @@ function loadWasConnected(): boolean {
 function saveWasConnected(value: boolean) {
 	try {
 		if (value) {
-			sessionStorage.setItem(STORAGE_KEY, "1");
+			localStorage.setItem(STORAGE_KEY, "1");
 		} else {
+			localStorage.removeItem(STORAGE_KEY);
 			sessionStorage.removeItem(STORAGE_KEY);
 		}
 	} catch {
@@ -169,8 +178,14 @@ export function resetSandboxFail() {
  * Exception: if the provisioning page just verified health and set the
  * PROVISION_VERIFIED_KEY flag, we start as "connected" with wasConnected=true
  * so the dashboard doesn't show a blocking overlay during the transition.
+ *
+ * `preserveWasConnected`: pass true on the FIRST mount of a cold load — the
+ * active server is the same persisted one from the last session, so the
+ * persisted wasConnected hint is still about the right server. Wiping it here
+ * (the old behavior) defeated the persistence and forced the blocking overlay
+ * plus a serialized health-check→data waterfall on every cold load.
  */
-export function resetForServerSwitch() {
+export function resetForServerSwitch(opts?: { preserveWasConnected?: boolean }) {
 	const fromProvisioning = loadProvisionVerified();
 	clearProvisionVerified();
 
@@ -194,11 +209,13 @@ export function resetForServerSwitch() {
 		return;
 	}
 
+	const preserved = !!opts?.preserveWasConnected && loadWasConnected();
+
 	useSandboxConnectionStore.setState({
 		status: "connecting",
 		failCount: 0,
 		initialCheckDone: false,
-		wasConnected: false,
+		wasConnected: preserved,
 		reconnectAttempts: 0,
 		disconnectedAt: null,
 		sandboxVersion: null,
@@ -207,7 +224,7 @@ export function resetForServerSwitch() {
 		recoveryPhase: "idle",
 		restartRequestedAt: null,
 	});
-	saveWasConnected(false);
+	if (!preserved) saveWasConnected(false);
 }
 
 export function markRecoveryRequested(phase: Exclude<SandboxRecoveryPhase, 'idle'>) {

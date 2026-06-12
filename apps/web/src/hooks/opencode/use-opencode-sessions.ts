@@ -3,8 +3,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getClient } from '@/lib/opencode-sdk';
 import { useOpenCodeCompactionStore } from '@/stores/opencode-compaction-store';
-import { useSandboxConnectionStore } from '@/stores/sandbox-connection-store';
 import { useSyncStore } from '@/stores/opencode-sync-store';
+import { useOpenCodeRuntimeReady } from './use-runtime-ready';
 import type {
   Session,
   Message,
@@ -32,6 +32,10 @@ export type { Session, Message, Part, Agent, Command, Project, SessionStatus, Pe
 
 // Re-export filtered agents hook for UI agent selectors
 export { useVisibleAgents } from './use-visible-agents';
+
+// Re-export the shared runtime gate (was a file-local helper before the
+// optimistic-boot change — see ./use-runtime-ready.ts)
+export { useOpenCodeRuntimeReady } from './use-runtime-ready';
 
 /**
  * Shape returned by `client.session.messages()`:
@@ -154,10 +158,6 @@ const LS_SESSIONS = 'kortix_cache_sessions';
 const LS_AGENTS = 'kortix_cache_agents';
 const LS_COMMANDS = 'kortix_cache_commands';
 const LS_PROVIDERS = 'kortix_cache_providers';
-
-function useOpenCodeRuntimeReady() {
-  return useSandboxConnectionStore((s) => s.status === 'connected' && s.healthy === true);
-}
 
 export function useOpenCodeSessions() {
   const runtimeReady = useOpenCodeRuntimeReady();

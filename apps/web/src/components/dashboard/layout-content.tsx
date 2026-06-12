@@ -492,6 +492,12 @@ export default function DashboardLayoutContent({
 	useSandboxConnection();
 	useConnectionToasts();
 	const connectionStatus = useSandboxConnectionStore((s) => s.status);
+	// Optimistic boot: this browser connected to the persisted active server
+	// before (localStorage hint preserved on first mount). Don't hold the whole
+	// tree behind the first health check — mount immediately so cached data
+	// paints and queries run in parallel with the check. ConnectingScreen's
+	// store-driven modes take over if the check then fails.
+	const bootWasConnected = useSandboxConnectionStore((s) => s.wasConnected);
 
 	const { data: adminRoleData, isLoading: isCheckingAdminRole } =
 		useAdminRole();
@@ -950,11 +956,11 @@ export default function DashboardLayoutContent({
 	useEffect(() => {
 		if (hasEverRendered) return;
 		const connectionSettled =
-			connectionStatus !== "connecting" || hasNoSandbox;
+			connectionStatus !== "connecting" || hasNoSandbox || bootWasConnected;
 		if (!isLoading && !!user && onboardingChecked && connectionSettled) {
 			setHasEverRendered(true);
 		}
-	}, [hasEverRendered, isLoading, user, onboardingChecked, connectionStatus, hasNoSandbox]);
+	}, [hasEverRendered, isLoading, user, onboardingChecked, connectionStatus, hasNoSandbox, bootWasConnected]);
 
 	// Pin the stage copy to whatever is actually pending so the connect
 	// screen reflects real progress instead of cycling blindly.
@@ -969,7 +975,7 @@ export default function DashboardLayoutContent({
 		(isLoading ||
 			!user ||
 			!onboardingChecked ||
-			(connectionStatus === "connecting" && !hasNoSandbox));
+			(connectionStatus === "connecting" && !hasNoSandbox && !bootWasConnected));
 
 	const maintenanceBlock =
 		isMaintenanceActive &&

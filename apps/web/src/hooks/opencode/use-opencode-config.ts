@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getClient } from '@/lib/opencode-sdk';
-import { useSandboxConnectionStore } from '@/stores/sandbox-connection-store';
+import { useOpenCodeRuntimeReady } from './use-runtime-ready';
 import type { Config } from '@opencode-ai/sdk/v2/client';
 
 export type { Config };
@@ -20,7 +20,7 @@ function unwrap<T>(result: { data?: T; error?: unknown }): T {
 }
 
 export function useOpenCodeConfig() {
-  const runtimeReady = useSandboxConnectionStore((s) => s.status === 'connected' && s.healthy === true);
+  const runtimeReady = useOpenCodeRuntimeReady();
   return useQuery<Config>({
     queryKey: configKeys.all,
     queryFn: async () => {
