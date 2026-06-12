@@ -67,6 +67,8 @@ function touchMessageCache(sessionId: string) {
 	}
 }
 
+const EMPTY_PARTS: Part[] = [];
+
 function buildMessages(
 	sessionId: string,
 	msgs: Message[] | undefined,
@@ -89,13 +91,30 @@ function buildMessages(
 		if (same) return cached.result;
 	}
 
-	// Rebuild
+	// Rebuild — but REUSE the previous per-message wrapper object whenever the
+	// message info and its parts array are unchanged. During streaming only
+	// one message's parts change per event; keeping stable identities for the
+	// other ~N-1 wrappers is what lets the turn grouping (and the memoized
+	// SessionTurn components downstream) skip re-rendering untouched turns.
+	const prevById = new Map<string, MessageWithParts>();
+	if (cached) {
+		for (const w of cached.result) prevById.set(w.info.id, w);
+	}
 	const partRefs: (Part[] | undefined)[] = [];
 	const result: MessageWithParts[] = [];
 	for (const info of msgs) {
 		const pa = parts[info.id];
 		partRefs.push(pa);
-		result.push({ info, parts: pa ?? [] });
+		const prev = prevById.get(info.id);
+		if (
+			prev &&
+			prev.info === info &&
+			prev.parts === (pa ?? EMPTY_PARTS)
+		) {
+			result.push(prev);
+		} else {
+			result.push({ info, parts: pa ?? EMPTY_PARTS });
+		}
 	}
 	messageCache.set(sessionId, { msgs, partRefs, result });
 	touchMessageCache(sessionId);
