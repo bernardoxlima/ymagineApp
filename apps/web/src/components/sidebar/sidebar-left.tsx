@@ -28,7 +28,6 @@ import {
   Copy,
   ShieldAlert,
 } from 'lucide-react';
-import posthog from 'posthog-js';
 
 import { SessionList } from '@/components/sidebar/session-list';
 import { useLegacyThreads, useMigrateAllLegacyThreads, useMigrateAllStatus } from '@/hooks/legacy/use-legacy-threads';
@@ -1284,7 +1283,12 @@ export function SidebarLeft({ ...props }: React.ComponentProps<typeof Sidebar>) 
   const createSession = useCreateOpenCodeSession();
 
   const handleNewSession = useCallback(async () => {
-    posthog.capture('new_task_clicked', { source: 'new_session_button' });
+    // Lazy import keeps posthog-js (~40KB gz) out of the sidebar chunk, which
+    // loads on every authenticated screen. The singleton is initialized by the
+    // root-layout analytics provider; capture() queues if init hasn't run yet.
+    void import('posthog-js')
+      .then(({ default: posthog }) => posthog.capture('new_task_clicked', { source: 'new_session_button' }))
+      .catch(() => { /* analytics is best-effort */ });
     try {
       const session = await createSession.mutateAsync();
       openTabAndNavigate({

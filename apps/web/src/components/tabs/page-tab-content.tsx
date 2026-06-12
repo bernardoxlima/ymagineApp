@@ -10,11 +10,39 @@ const DEPLOYMENTS_ENABLED = process.env.NEXT_PUBLIC_KORTIX_DEPLOYMENTS_ENABLED =
 // DOM and kept alive when the user switches tabs (CSS show/hide).
 // ---------------------------------------------------------------------------
 
-const DashboardContent = lazy(() =>
+// Import thunks for the hottest tabs are named so they can ALSO be warmed up
+// during browser idle time after the dashboard settles (HOT_TAB_CHUNK_THUNKS,
+// consumed by dashboard/layout-content). Without the warmup, the first click
+// on each tab pays a chunk round-trip to the server before anything renders.
+const loadDashboardContent = () =>
 	import('@/components/dashboard/dashboard-content').then((m) => ({
 		default: m.DashboardContent,
-	})),
-);
+	}));
+const loadWorkspacePage = () => import('@/app/(dashboard)/workspace/page');
+const loadFilesPage = () =>
+	import('@/features/files/components/file-explorer-page').then((m) => ({
+		default: m.FileExplorerPage,
+	}));
+const loadMarketplacePage = () =>
+	import('@/features/skills/components/marketplace').then((m) => ({
+		default: m.Marketplace,
+	}));
+const loadProjectViewPage = () => import('@/app/(dashboard)/projects/[id]/page');
+
+/**
+ * Chunk-warmup thunks for the most-visited pre-mounted tabs, in priority
+ * order. Consumed by the dashboard layout during requestIdleCallback so the
+ * first open of these tabs is a pure CSS show instead of a network fetch.
+ */
+export const HOT_TAB_CHUNK_THUNKS: ReadonlyArray<() => Promise<unknown>> = [
+	loadDashboardContent,
+	loadWorkspacePage,
+	loadFilesPage,
+	loadProjectViewPage,
+	loadMarketplacePage,
+];
+
+const DashboardContent = lazy(loadDashboardContent);
 
 const SecretsPage = lazy(() =>
 	import('@/app/(dashboard)/settings/credentials/page'),
@@ -36,9 +64,7 @@ const ChangelogPage = lazy(() =>
 	import('@/app/(dashboard)/changelog/page'),
 );
 
-const WorkspacePage = lazy(() =>
-	import('@/app/(dashboard)/workspace/page'),
-);
+const WorkspacePage = lazy(loadWorkspacePage);
 
 const TriggersPage = lazy(() =>
 	import('@/components/scheduled-tasks/scheduled-tasks-page').then((m) => ({
@@ -64,19 +90,11 @@ const TunnelOverviewPage = lazy(() =>
 	})),
 );
 
-const FilesPage = lazy(() =>
-	import('@/features/files/components/file-explorer-page').then((m) => ({
-		default: m.FileExplorerPage,
-	})),
-);
+const FilesPage = lazy(loadFilesPage);
 
 const BoardPage = lazy(() => import('@/app/(dashboard)/board/page'));
 
-const MarketplacePage = lazy(() =>
-	import('@/features/skills/components/marketplace').then((m) => ({
-		default: m.Marketplace,
-	})),
-);
+const MarketplacePage = lazy(loadMarketplacePage);
 
 const DeploymentsPage = lazy(() =>
 	import('@/components/deployments/deployments-page').then((m) => ({
@@ -108,9 +126,7 @@ const TaskDetailPage = lazy(() =>
 	import('@/app/(dashboard)/tasks/[id]/page'),
 );
 
-const ProjectViewPage = lazy(() =>
-	import('@/app/(dashboard)/projects/[id]/page'),
-);
+const ProjectViewPage = lazy(loadProjectViewPage);
 
 // ---------------------------------------------------------------------------
 // Route → Component mapping

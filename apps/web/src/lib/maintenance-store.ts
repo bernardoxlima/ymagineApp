@@ -72,18 +72,34 @@ let _memoryStore: MaintenanceConfig = { ...DEFAULT_CONFIG };
 // Public API
 // ---------------------------------------------------------------------------
 
+// In-process TTL cache. The middleware calls getMaintenanceConfig() on every
+// document/RSC request, and outside Vercel the Edge Config client is a real
+// HTTPS request to api.vercel.com — putting an external round-trip on the
+// critical path of every navigation. 30s of staleness is fine for a
+// maintenance toggle (Edge Config propagation has similar lag, and the
+// client-side maintenanceConfig check is a second safety net).
+const READ_TTL_MS = 30_000;
+let _readCache: { value: MaintenanceConfig; at: number } | null = null;
+
 /**
  * Read the current maintenance configuration.
- * Fast in production (Edge Config), instant in dev (memory).
+ * Cached in-process for 30s; instant in dev (memory).
  */
 export async function getMaintenanceConfig(): Promise<MaintenanceConfig> {
   const client = getEdgeClient();
   if (client) {
+    if (_readCache && Date.now() - _readCache.at < READ_TTL_MS) {
+      return _readCache.value;
+    }
     try {
       const config = await client.get<MaintenanceConfig>(EDGE_CONFIG_KEY);
-      return config ?? { ...DEFAULT_CONFIG };
+      const value = config ?? { ...DEFAULT_CONFIG };
+      _readCache = { value, at: Date.now() };
+      return value;
     } catch (err) {
       console.warn('[maintenance-store] Edge Config read failed, using defaults:', err);
+      // Don't cache failures as "no maintenance" for the full TTL — retry
+      // sooner so a transient Edge Config blip can't mask a real config.
       return { ...DEFAULT_CONFIG };
     }
   }
@@ -126,6 +142,9 @@ export async function setMaintenanceConfig(config: MaintenanceConfig): Promise<M
       throw new Error(`Edge Config write failed (${res.status}): ${body}`);
     }
 
+    // Bust this process's read cache so the admin sees the change instantly.
+    // (Other isolates — e.g. the middleware — converge within READ_TTL_MS.)
+    _readCache = { value: config, at: Date.now() };
     return config;
   }
 

@@ -111,6 +111,28 @@ export default async function RootLayout({
   await connection();
   const runtimeEnv = getServerPublicEnv();
 
+  // Preconnect to the cross-origin services the app hits during boot
+  // (Supabase auth, backend API). Starting DNS+TCP+TLS while the JS bundles
+  // are still downloading shaves a round-trip off the first authenticated
+  // request. Same-origin entries are filtered out (preconnect would be a
+  // no-op) and parse failures are ignored.
+  const toOrigin = (value?: string | null): string | null => {
+    if (!value) return null;
+    try {
+      return new URL(value).origin;
+    } catch {
+      return null;
+    }
+  };
+  const appOrigin = toOrigin(runtimeEnv.APP_URL);
+  const preconnectOrigins = Array.from(
+    new Set(
+      [runtimeEnv.SUPABASE_URL, runtimeEnv.BACKEND_URL]
+        .map((value) => toOrigin(value))
+        .filter((origin): origin is string => !!origin && origin !== appOrigin),
+    ),
+  );
+
   return (
     <html lang="en" translate="no" suppressHydrationWarning className={`notranslate ${roobert.variable} ${roobertMono.variable}`}>
       <head>
@@ -137,6 +159,12 @@ export default async function RootLayout({
         {/* DNS prefetch for analytics (loaded later but resolve DNS early) */}
         <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
         <link rel="dns-prefetch" href="https://eu.i.posthog.com" />
+
+        {/* Preconnect to Supabase/backend so the first auth + API requests
+            skip DNS+TCP+TLS setup (browser fetches are CORS-anonymous). */}
+        {preconnectOrigins.map((origin) => (
+          <link key={origin} rel="preconnect" href={origin} crossOrigin="anonymous" />
+        ))}
 
         {/* Container Load - Initialize dataLayer with page context BEFORE GTM loads */}
         <script

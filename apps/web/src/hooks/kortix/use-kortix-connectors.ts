@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { authenticatedFetch } from '@/lib/auth-token';
+import { readLSQueryCache, writeLSQueryCache } from '@/lib/ls-query-cache';
 import { useAuth } from '@/components/AuthProvider';
 import { useServerStore } from '@/stores/server-store';
 
@@ -28,8 +29,12 @@ export function useKortixConnectors() {
       const res = await authenticatedFetch(url);
       if (!res.ok) throw new Error(`Failed to fetch connectors: ${res.status}`);
       const data = await res.json();
-      return data.connectors ?? [];
+      const connectors = data.connectors ?? [];
+      writeLSQueryCache('kortix-connectors', connectors);
+      return connectors;
     },
+    // placeholderData only — see ls-query-cache.ts staleness note.
+    placeholderData: () => readLSQueryCache<KortixConnector[]>('kortix-connectors'),
     enabled: !isAuthLoading && !!user && !!serverUrl,
     staleTime: 30_000,
   });

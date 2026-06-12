@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { readLSQueryCache, writeLSQueryCache } from '@/lib/ls-query-cache';
 import { listSkills } from '../api/skills-api';
 import type { Skill } from '../types';
 
@@ -26,7 +27,14 @@ export const skillsKeys = {
 export function useSkills() {
   return useQuery<Skill[]>({
     queryKey: skillsKeys.all,
-    queryFn: listSkills,
+    queryFn: async () => {
+      const skills = await listSkills();
+      writeLSQueryCache('skills', skills);
+      return skills;
+    },
+    // placeholderData only — see ls-query-cache.ts staleness note. Shares the
+    // 'skills' LS key with useOpenCodeSkills (same query key, same payload).
+    placeholderData: () => readLSQueryCache<Skill[]>('skills'),
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
   });
