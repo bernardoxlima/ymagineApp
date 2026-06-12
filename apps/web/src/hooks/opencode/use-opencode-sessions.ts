@@ -546,7 +546,10 @@ export function useOpenCodeAgents(options?: { directory?: string }) {
       return agents;
     },
     // Per-directory results aren't cached to LS — only the global list is.
-    placeholderData: directory ? undefined : () => getLSCache<Agent[]>(LS_AGENTS),
+    // For directory-scoped queries the global list doubles as the placeholder:
+    // the project list is the global set plus the project's own agent files,
+    // so the agent picker is usable instantly while the scoped fetch runs.
+    placeholderData: () => getLSCache<Agent[]>(LS_AGENTS),
     enabled: runtimeReady,
     staleTime: Infinity,
     gcTime: 10 * 60 * 1000,

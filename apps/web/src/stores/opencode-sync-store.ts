@@ -108,6 +108,14 @@ interface SyncState {
 	optimisticRemove: (sessionID: string, messageID: string) => void;
 	clearOptimisticMessages: (sessionID: string) => void;
 	clearSession: (sessionID: string) => void;
+	/**
+	 * Drop ALL in-memory state for a session (messages, parts, status, etc.).
+	 * Called when the session's tab closes — IndexedDB keeps the cold copy, so
+	 * reopening hydrates instantly. Unlike clearSession (which keeps empty
+	 * entries so `isLoading` reads false), this removes the keys entirely so a
+	 * reopen goes through the normal IDB-then-network load path.
+	 */
+	evictSession: (sessionID: string) => void;
 	hydrate: (
 		sessionID: string,
 		msgs: Array<{ info: Message; parts: Part[] }>,
@@ -489,6 +497,40 @@ export const useSyncStore = create<SyncState>()((set, get) => ({
 				questions: { ...s.questions, [sessionID]: [] },
 				diffs: { ...s.diffs, [sessionID]: [] },
 				todos: { ...s.todos, [sessionID]: [] },
+			};
+		}),
+
+	evictSession: (sessionID) =>
+		set((s) => {
+			if (!(sessionID in s.messages) && !(sessionID in s.sessionStatus)) {
+				return {};
+			}
+			const evicted = s.messages[sessionID] ?? [];
+			const nextMessages = { ...s.messages };
+			delete nextMessages[sessionID];
+			const nextParts = { ...s.parts };
+			for (const message of evicted) delete nextParts[message.id];
+			const omit = <T>(rec: Record<string, T>): Record<string, T> => {
+				if (!(sessionID in rec)) return rec;
+				const next = { ...rec };
+				delete next[sessionID];
+				return next;
+			};
+			// Drop the per-session streaming snapshot too — it only exists to
+			// survive reloads mid-stream, which a closed tab no longer needs.
+			try {
+				sessionStorage.removeItem(`opencode_stream_cache:${sessionID}`);
+			} catch {
+				/* storage unavailable */
+			}
+			return {
+				messages: nextMessages,
+				parts: nextParts,
+				sessionStatus: omit(s.sessionStatus),
+				permissions: omit(s.permissions),
+				questions: omit(s.questions),
+				diffs: omit(s.diffs),
+				todos: omit(s.todos),
 			};
 		}),
 

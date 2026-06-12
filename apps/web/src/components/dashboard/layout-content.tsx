@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { useAuth } from "@/components/AuthProvider";
@@ -17,6 +17,8 @@ import { useAdminRole } from "@/hooks/admin";
 import { useSystemStatusQuery } from "@/hooks/edge-flags";
 import { useCreateOpenCodeSession } from "@/hooks/opencode/use-opencode-sessions";
 import { OpenCodeEventStreamProvider } from "@/hooks/opencode/use-opencode-events";
+import { forgetPrefetchedSession } from "@/hooks/opencode/use-session-prefetch";
+import { useSyncStore } from "@/stores/opencode-sync-store";
 import { useSandbox } from "@/hooks/platform/use-sandbox";
 import { useSandboxConnection } from "@/hooks/platform/use-sandbox-connection";
 import { useWebNotifications } from "@/hooks/use-web-notifications";
@@ -230,11 +232,21 @@ async function readEnv(key: string): Promise<string | null> {
 // ============================================================================
 // Pre-mounted session tabs: keeps all open sessions alive in the DOM so
 // switching between tabs is instant (no re-mount, no loading spinner).
+//
+// RAM bound: only the active session plus the most recently focused ones
+// (WARM_SESSION_TABS) keep their full React tree + DOM mounted. Colder
+// session tabs stay in the tab bar but render nothing until activated —
+// their data lives in the sync store / IndexedDB, so re-activating paints
+// from memory with no network. Without this cap, ten open sessions meant
+// ten full hidden chat trees (DOM + fibers + timers) alive forever.
 // ============================================================================
+const WARM_SESSION_TABS = 3;
+
 function SessionTabsContainer({ children }: { children: React.ReactNode }) {
 	const tabs = useTabStore((s) => s.tabs) || {};
 	const tabOrder = useTabStore((s) => s.tabOrder) || [];
 	const activeTabId = useTabStore((s) => s.activeTabId);
+	const tabFocusHistory = useTabStore((s) => s.tabFocusHistory) || [];
 	const obActive = useOnboardingModeStore((s) => s.active);
 	const obSessionId = useOnboardingModeStore((s) => s.sessionId);
 
@@ -254,13 +266,43 @@ function SessionTabsContainer({ children }: { children: React.ReactNode }) {
 	// All tab types are now pre-mounted — route-based children are never shown
 	const showingMountedTab = !!activeTab;
 
+	// Warm set: the active session + the WARM_SESSION_TABS most recently
+	// focused session tabs keep their trees mounted. Everything else unmounts.
+	const warmSessionIds = useMemo(() => {
+		const warm = new Set<string>();
+		if (activeTabId && tabs[activeTabId]?.type === "session") {
+			warm.add(activeTabId);
+		}
+		for (const id of tabFocusHistory) {
+			if (warm.size > WARM_SESSION_TABS) break;
+			if (tabs[id]?.type === "session") warm.add(id);
+		}
+		return warm;
+	}, [activeTabId, tabFocusHistory, tabs]);
+
+	// Evict sync-store data for sessions whose tabs were CLOSED (not merely
+	// cold). IndexedDB keeps the cold copy, so reopening hydrates instantly.
+	const prevSessionTabIdsRef = useRef<Set<string>>(new Set());
+	useEffect(() => {
+		const current = new Set(sessionTabIds);
+		for (const id of prevSessionTabIdsRef.current) {
+			if (!current.has(id)) {
+				useSyncStore.getState().evictSession(id);
+				forgetPrefetchedSession(id);
+			}
+		}
+		prevSessionTabIdsRef.current = current;
+	});
+
 	return (
 		<div
 			className={cn(
 				"bg-background flex-1 min-h-0 flex flex-col overflow-hidden relative",
 			)}
 		>
-			{/* Pre-mounted session tabs — always rendered, shown/hidden via CSS */}
+			{/* Session tabs — the warm set stays mounted (instant switch); cold
+			    tabs render nothing until activated (data re-paints from the
+			    sync store / IDB with no network). */}
 			{sessionTabIds.map((id) => (
 				<div
 					key={id}
@@ -269,11 +311,13 @@ function SessionTabsContainer({ children }: { children: React.ReactNode }) {
 						id !== activeTabId && "hidden",
 					)}
 				>
-					<Suspense fallback={null}>
-						<SessionLayout sessionId={id}>
-							<SessionChat sessionId={id} hideHeader={obActive && id === obSessionId} />
-						</SessionLayout>
-					</Suspense>
+					{warmSessionIds.has(id) && (
+						<Suspense fallback={null}>
+							<SessionLayout sessionId={id}>
+								<SessionChat sessionId={id} hideHeader={obActive && id === obSessionId} />
+							</SessionLayout>
+						</Suspense>
+					)}
 				</div>
 			))}
 
@@ -350,35 +394,33 @@ function SessionTabsContainer({ children }: { children: React.ReactNode }) {
 				</div>
 			))}
 
-	{/* Browser tabs — agent-browser CDP viewport (port 9224, Chrome-only) */}
-	{browserTabIds.map((id) => (
-		<div
-			key={id}
-			className={cn(
-				"absolute inset-0 flex flex-col",
-				id !== activeTabId && "hidden",
-			)}
-		>
-			<Suspense fallback={null}>
-				<BrowserTabContent />
-			</Suspense>
-		</div>
-	))}
+	{/* Browser tabs — agent-browser CDP viewport (port 9224, Chrome-only).
+	    Mounted only while ACTIVE: the iframe is a live screencast that keeps
+	    streaming + decoding even under display:none, burning bandwidth and
+	    CPU for pixels nobody sees. It's a stateless viewer of remote state,
+	    so remount-on-activate just reconnects the stream. */}
+	{browserTabIds.map((id) =>
+		id === activeTabId ? (
+			<div key={id} className="absolute inset-0 flex flex-col">
+				<Suspense fallback={null}>
+					<BrowserTabContent />
+				</Suspense>
+			</div>
+		) : null,
+	)}
 
-	{/* Desktop tabs — full Selkies desktop stream (port 6080) */}
-	{desktopTabIds.map((id) => (
-		<div
-			key={id}
-			className={cn(
-				"absolute inset-0 flex flex-col",
-				id !== activeTabId && "hidden",
-			)}
-		>
-			<Suspense fallback={null}>
-				<DesktopTabContent />
-			</Suspense>
-		</div>
-	))}
+	{/* Desktop tabs — full Selkies desktop stream (port 6080). Same
+	    active-only mounting as the browser tab: hidden H.264 decode is
+	    pure waste and the desktop state lives server-side. */}
+	{desktopTabIds.map((id) =>
+		id === activeTabId ? (
+			<div key={id} className="absolute inset-0 flex flex-col">
+				<Suspense fallback={null}>
+					<DesktopTabContent />
+				</Suspense>
+			</div>
+		) : null,
+	)}
 
 	{/* Page/settings/dashboard tabs — pre-mounted, shown/hidden via CSS */}
 		{pageTabIds.map((id) => {

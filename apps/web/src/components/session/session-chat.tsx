@@ -31,7 +31,7 @@ import {
   Timer,
   X,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { UnifiedMarkdown } from '@/components/markdown/unified-markdown';
 import { SandboxImage } from '@/components/session/sandbox-image';
 
@@ -171,7 +171,6 @@ import {
   isAttachment,
   isCompactionPart,
   isFilePart,
-  isLastUserMessage,
   isPatchPart,
   isReasoningPart,
   isShellMode,
@@ -2628,7 +2627,8 @@ function SameToolGroup({
 
 interface SessionTurnProps {
   turn: Turn;
-  allMessages: MessageWithParts[];
+  /** Whether this turn's user message is the last user message in the session. */
+  isLast: boolean;
   sessionId: string;
   sessionStatus: import('@/ui').SessionStatus | undefined;
   permissions: PermissionRequest[];
@@ -2659,9 +2659,14 @@ interface SessionTurnProps {
   ) => Promise<void>;
 }
 
-function SessionTurn({
+// Memoized: with reference-cached message wrappers (use-session-sync
+// buildMessages) and turn objects (the turns useMemo below), streaming
+// updates only change the LAST turn's references — every other turn skips
+// re-rendering entirely. Before this, each streaming token re-rendered all
+// turns including their tool views.
+const SessionTurn = memo(function SessionTurn({
   turn,
-  allMessages,
+  isLast,
   sessionId,
   sessionStatus,
   permissions,
@@ -2712,10 +2717,6 @@ function SessionTurn({
     () =>
       allParts.some(({ part }) => isReasoningPart(part) && !!part.text?.trim()),
     [allParts],
-  );
-  const isLast = useMemo(
-    () => isLastUserMessage(turn.userMessage.info.id, allMessages),
-    [turn.userMessage.info.id, allMessages],
   );
   // A turn is "working" when:
   // 1. The session status says busy/retry (via getWorkingState), OR
@@ -3858,7 +3859,7 @@ function SessionTurn({
       />
     </div>
   );
-}
+});
 
 // ============================================================================
 // Main SessionChat Component
@@ -4037,6 +4038,13 @@ export function SessionChat({
   const [confirmForkMessageId, setConfirmForkMessageId] = useState<
     string | null
   >(null);
+  // Stable identity so the memoized SessionTurn doesn't re-render on every
+  // parent render (an inline closure here would break the memo for all turns).
+  // Opens the fork CONFIRMATION dialog — the actual fork runs in handleFork
+  // below once the user confirms.
+  const handleRequestFork = useCallback(async (userMessageId: string) => {
+    setConfirmForkMessageId(userMessageId);
+  }, []);
   const [pendingCommand, setPendingCommand] = useState<{
     name: string;
     description?: string;
@@ -4977,10 +4985,31 @@ export function SessionChat({
   }, []);
   const questionHydrationInFlightRef = useRef(false);
   const lastQuestionHydrationAtRef = useRef(0);
-  const turns = useMemo(
-    () => (messages ? groupMessagesIntoTurns(messages) : []),
-    [messages],
-  );
+  // Turn grouping with reference reuse: groupMessagesIntoTurns builds fresh
+  // Turn objects every time, which would defeat SessionTurn's memo. Reuse the
+  // previous Turn object whenever its userMessage wrapper and every assistant
+  // message wrapper are reference-identical (buildMessages in use-session-sync
+  // keeps wrapper identities stable for untouched messages). During streaming
+  // only the last turn gets a new identity.
+  const prevTurnsRef = useRef<Map<string, Turn>>(new Map());
+  const turns = useMemo(() => {
+    const fresh = messages ? groupMessagesIntoTurns(messages) : [];
+    const prev = prevTurnsRef.current;
+    const next = new Map<string, Turn>();
+    const out = fresh.map((t) => {
+      const old = prev.get(t.userMessage.info.id);
+      const unchanged =
+        old &&
+        old.userMessage === t.userMessage &&
+        old.assistantMessages.length === t.assistantMessages.length &&
+        old.assistantMessages.every((m, i) => m === t.assistantMessages[i]);
+      const turn = unchanged ? old : t;
+      next.set(t.userMessage.info.id, turn);
+      return turn;
+    });
+    prevTurnsRef.current = next;
+    return out;
+  }, [messages]);
   const hasAnyMessages = turns.length > 0;
   const hasChatContent =
     hasAnyMessages || (!!optimisticPrompt && !hasAnyMessages);
@@ -5895,8 +5924,14 @@ export function SessionChat({
   const showOptimistic = !!optimisticPrompt && !hasMessages;
   const isTransitioningFromWelcome =
     !prevHasChatContentRef.current && hasChatContent;
+  // Never show the "new chat" welcome wallpaper while messages are still
+  // loading for an EXISTING session — it reads as "my conversation is gone"
+  // and users click the session again thinking the first click failed. The
+  // welcome only appears once the session is confirmed empty (loaded, 0 msgs).
   const shouldShowWelcomeOverlay =
-    !hasChatContent || welcomeFadeActive || isTransitioningFromWelcome;
+    (!hasChatContent && !messagesLoading) ||
+    welcomeFadeActive ||
+    isTransitioningFromWelcome;
 
   return (
     <div className="relative flex flex-col h-full bg-background">
@@ -6084,6 +6119,15 @@ export function SessionChat({
                   </div>
                 )}
 
+                {/* Loading state for an existing session with no local cache
+                    yet — honest indicator instead of a fake-empty welcome.
+                    Disappears the instant IDB hydration or the fetch lands. */}
+                {messagesLoading && !hasAnyMessages && !showOptimistic && (
+                  <div className="flex-1 flex items-center justify-center py-24">
+                    <AppLoader size="medium" />
+                  </div>
+                )}
+
                 {/* Turn-based message rendering */}
                 {turns.map((turn, turnIndex) => {
                   // Check if this turn is a compaction summary
@@ -6105,6 +6149,15 @@ export function SessionChat({
                       key={turn.userMessage.info.id}
                       data-turn-id={turn.userMessage.info.id}
                       className={turnIndex === 0 ? '' : 'mt-12'}
+                      // Skip layout+paint for turns outside the viewport —
+                      // opening a long session only pays render cost for the
+                      // visible tail. 'auto 320px' gives the browser a size
+                      // estimate before first render; Chrome then remembers
+                      // the real size, keeping scroll anchoring stable.
+                      style={{
+                        contentVisibility: 'auto',
+                        containIntrinsicSize: 'auto 320px',
+                      }}
                     >
                       {/* Compaction divider — shown before the first turn after compaction */}
                       {hasCompaction && (
@@ -6121,7 +6174,7 @@ export function SessionChat({
                       )}
                       <SessionTurn
                         turn={turn}
-                        allMessages={messages!}
+                        isLast={turnIndex === turns.length - 1}
                         sessionId={sessionId}
                         sessionStatus={sessionStatus}
                         permissions={pendingPermissions}
@@ -6130,9 +6183,7 @@ export function SessionChat({
                         isFirstTurn={turnIndex === 0}
                         isBusy={isBusy}
                         isCompaction={hasCompaction}
-                        onFork={async (userMessageId) => {
-                          setConfirmForkMessageId(userMessageId);
-                        }}
+                        onFork={handleRequestFork}
                         onEditFork={handleEditFork}
                         providers={providers}
                         commandMessages={commandMessagesRef.current}
