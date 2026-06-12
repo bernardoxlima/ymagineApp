@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { getClient } from '@/lib/opencode-sdk';
 import { useSandboxConnectionStore } from '@/stores/sandbox-connection-store';
+import { useOpenCodeRuntimeReady } from '@/hooks/opencode/use-runtime-ready';
 import { opencodeKeys } from '@/hooks/opencode/use-opencode-sessions';
 import type { ServerHealth, OpenCodeProjectInfo } from '../types';
 
@@ -49,7 +50,7 @@ export function useServerHealth(options?: { enabled?: boolean }) {
  * which caused independent duplicate requests.
  */
 export function useCurrentProject(options?: { enabled?: boolean }) {
-  const runtimeReady = useSandboxConnectionStore((s) => s.status === 'connected' && s.healthy === true);
+  const runtimeReady = useOpenCodeRuntimeReady();
 
   return useQuery<OpenCodeProjectInfo>({
     queryKey: opencodeKeys.currentProject(),

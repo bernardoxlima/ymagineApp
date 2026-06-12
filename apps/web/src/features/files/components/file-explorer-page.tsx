@@ -43,6 +43,7 @@ import { downloadFile } from '../api/opencode-files';
 import { useDirectoryDownload } from '../hooks/use-directory-download';
 import { useServerStore } from '@/stores/server-store';
 import { openTabAndNavigate } from '@/stores/tab-store';
+import { useOpenCodeRuntimeReady } from '@/hooks/opencode/use-runtime-ready';
 import type { FileNode } from '../types';
 import { cn } from '@/lib/utils';
 import { toast } from '@/lib/toast';
@@ -91,17 +92,21 @@ export function FileExplorerPage() {
   useFileEventInvalidation();
 
   // File list
+  // Optimistic gate: fires in parallel with the first health check on cold
+  // load (see useOpenCodeRuntimeReady). `health` stays for the error view only.
+  const runtimeReady = useOpenCodeRuntimeReady();
+
   const {
     data: files,
     isLoading,
     error,
     refetch: refetchFiles,
   } = useFileList(currentPath, {
-    enabled: health?.healthy === true,
+    enabled: runtimeReady,
   });
 
   // Git status
-  const { data: gitStatuses } = useGitStatus({ enabled: health?.healthy === true });
+  const { data: gitStatuses } = useGitStatus({ enabled: runtimeReady });
   const gitStatusMap = useMemo(() => buildGitStatusMap(gitStatuses), [gitStatuses]);
 
   // Mutations
