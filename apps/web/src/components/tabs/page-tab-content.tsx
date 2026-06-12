@@ -11,9 +11,9 @@ const DEPLOYMENTS_ENABLED = process.env.NEXT_PUBLIC_KORTIX_DEPLOYMENTS_ENABLED =
 // ---------------------------------------------------------------------------
 
 // Import thunks for the hottest tabs are named so they can ALSO be warmed up
-// during browser idle time after the dashboard settles (see
-// preloadHotTabChunks below). Without the warmup, the first click on each tab
-// pays a chunk round-trip to the server before anything renders.
+// during browser idle time after the dashboard settles (HOT_TAB_CHUNK_THUNKS,
+// consumed by dashboard/layout-content). Without the warmup, the first click
+// on each tab pays a chunk round-trip to the server before anything renders.
 const loadDashboardContent = () =>
 	import('@/components/dashboard/dashboard-content').then((m) => ({
 		default: m.DashboardContent,
