@@ -27,6 +27,7 @@ import { useOpenCodePendingStore } from "@/stores/opencode-pending-store";
 import { useSandboxConnectionStore } from "@/stores/sandbox-connection-store";
 import { useSyncStore } from "@/stores/opencode-sync-store";
 import { useServerStore, getActiveOpenCodeUrl } from "@/stores/server-store";
+import { useTabStore } from "@/stores/tab-store";
 import { ptyKeys } from "./use-opencode-pty";
 import { opencodeKeys, type Session, type MessageWithParts } from "./use-opencode-sessions";
 import { saveSessionToIDB, deleteSessionFromIDB } from "@/lib/idb-sync-cache";
@@ -38,6 +39,37 @@ const messageRehydrateInFlight = new Set<string>();
 const messageRehydrateLastAt = new Map<string, number>();
 let projectMetadataRefetchLastAt = 0;
 let projectMetadataRefetchTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Transient error classes — connection blips, timeouts, provider overload.
+ * The runtime already retries these automatically, and the error still
+ * renders inline in the session itself. Firing an OS notification for every
+ * one of them turned background/scheduled sessions into a noise machine
+ * ("couldn't connect to ..." every time a provider hiccupped).
+ */
+const TRANSIENT_SESSION_ERROR_RE =
+	/connect|connection|timeout|timed.?out|network|econnrefused|econnreset|etimedout|socket|fetch failed|aborted|unavailable|overloaded|rate.?limit|too many requests|\b(429|502|503|504|529)\b/i;
+
+function isTransientSessionError(error: unknown): boolean {
+	const err = error as { name?: unknown; message?: unknown; data?: { message?: unknown } } | null;
+	const name = String(err?.name ?? "");
+	const msg = String(err?.data?.message ?? err?.message ?? "");
+	return (
+		TRANSIENT_SESSION_ERROR_RE.test(name) || TRANSIENT_SESSION_ERROR_RE.test(msg)
+	);
+}
+
+/**
+ * Only surface error notifications for sessions the user actually has open
+ * as a tab. The SSE stream carries session.error for EVERY session on the
+ * instance — scheduled-task runs, background workers, child agent sessions —
+ * and those errors already surface where the user would look for them (the
+ * run history / parent session's tool view).
+ */
+function shouldNotifySessionError(sessionID: string, error: unknown): boolean {
+	if (isTransientSessionError(error)) return false;
+	return !!useTabStore.getState().tabs[sessionID];
+}
 
 function reserveMessageRehydrate(sessionID: string): boolean {
 	if (!sessionID || messageRehydrateInFlight.has(sessionID)) return false;
@@ -780,16 +812,19 @@ export function useOpenCodeEventStream() {
 				const props = event.properties as { sessionID?: string; error?: any };
 				if (props.sessionID && props.error) {
 					stopCompaction(props.sessionID);
-					// Fire browser notification
-						const errorTitle =
-							props.error?.name ||
-							props.error?.data?.message ||
-							"An error occurred";
-						notifySessionError(
-							props.sessionID,
-							errorTitle,
-							getSessionTitle(props.sessionID),
-						);
+					// Fire browser notification — but only for non-transient errors
+					// on sessions the user has open as a tab (see helper docs above).
+						if (shouldNotifySessionError(props.sessionID, props.error)) {
+							const errorTitle =
+								props.error?.name ||
+								props.error?.data?.message ||
+								"An error occurred";
+							notifySessionError(
+								props.sessionID,
+								errorTitle,
+								getSessionTitle(props.sessionID),
+							);
+						}
 
 						// Patch the error onto the last assistant message in cache.
 						// This is critical because:
