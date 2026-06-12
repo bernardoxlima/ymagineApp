@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getClient } from '@/lib/opencode-sdk';
 import { useOpenCodeCompactionStore } from '@/stores/opencode-compaction-store';
 import { useSyncStore } from '@/stores/opencode-sync-store';
+import { readLSQueryCache, writeLSQueryCache } from '@/lib/ls-query-cache';
 import { useOpenCodeRuntimeReady } from './use-runtime-ready';
 import type {
   Session,
@@ -194,7 +195,15 @@ export function useOpenCodeSession(sessionId: string) {
     enabled: runtimeReady && !!sessionId,
     staleTime: Infinity,
     placeholderData: () => {
-      const sessions = queryClient.getQueryData<Session[]>(opencodeKeys.sessions());
+      // Query-cache first; on cold load that cache is empty (placeholderData
+      // of the list hook is observer-level, never written to the cache), so
+      // fall back to the localStorage copy of the sessions list. This is what
+      // lets the session tab paint title/directory instantly — and the
+      // directory is what unblocks the agents fetch, collapsing the old
+      // session → directory → agents waterfall into parallel requests.
+      const sessions =
+        queryClient.getQueryData<Session[]>(opencodeKeys.sessions()) ??
+        getLSCache<Session[]>(LS_SESSIONS);
       return sessions?.find((s) => s.id === sessionId);
     },
   });
@@ -570,8 +579,12 @@ export function useOpenCodeToolIds() {
     queryFn: async () => {
       const client = getClient();
       const result = await client.tool.ids();
-      return unwrap(result);
+      const ids = unwrap(result);
+      writeLSQueryCache('tool-ids', ids);
+      return ids;
     },
+    // placeholderData only — see ls-query-cache.ts staleness note.
+    placeholderData: () => readLSQueryCache<string[]>('tool-ids'),
     enabled: runtimeReady,
     staleTime: Infinity,
     gcTime: 10 * 60 * 1000,
@@ -604,8 +617,12 @@ export function useOpenCodeSkills() {
     queryFn: async () => {
       const client = getClient();
       const result = await client.app.skills();
-      return unwrap(result) as Skill[];
+      const skills = unwrap(result) as Skill[];
+      writeLSQueryCache('skills', skills);
+      return skills;
     },
+    // placeholderData only — see ls-query-cache.ts staleness note.
+    placeholderData: () => readLSQueryCache<Skill[]>('skills'),
     enabled: runtimeReady,
     staleTime: Infinity,
     gcTime: 10 * 60 * 1000,
@@ -623,8 +640,12 @@ export function useOpenCodeProjects() {
     queryFn: async () => {
       const client = getClient();
       const result = await client.project.list();
-      return unwrap(result);
+      const projects = unwrap(result);
+      writeLSQueryCache('oc-projects', projects);
+      return projects;
     },
+    // placeholderData only — see ls-query-cache.ts staleness note.
+    placeholderData: () => readLSQueryCache<Project[]>('oc-projects'),
     enabled: runtimeReady,
     staleTime: Infinity,
     gcTime: 5 * 60 * 1000,
@@ -934,8 +955,12 @@ export function useOpenCodeMcpStatus() {
     queryFn: async () => {
       const client = getClient();
       const result = await client.mcp.status();
-      return unwrap(result) as Record<string, McpStatus>;
+      const status = unwrap(result) as Record<string, McpStatus>;
+      writeLSQueryCache('mcp-status', status);
+      return status;
     },
+    // placeholderData only — see ls-query-cache.ts staleness note.
+    placeholderData: () => readLSQueryCache<Record<string, McpStatus>>('mcp-status'),
     enabled: runtimeReady,
     staleTime: Infinity,
     gcTime: 5 * 60 * 1000,
